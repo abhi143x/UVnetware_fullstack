@@ -1,0 +1,160 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+nav {
+  background-color: #000;
+  padding: 1rem 0;
+  box-shadow: 0 2px 4px rgba(48, 79, 254, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: nowrap;
+}
+
+.logo a {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #304ffe;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.logo a:hover {
+  color: #5c6bc0;
+}
+
+.navLink {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+}
+
+.navLink a {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s;
+  padding: 0.5rem;
+}
+
+.navLink a:hover {
+  color: #304ffe;
+}
+
+.navContainer > span:nth-child(3) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+#search {
+  padding: 1rem 1rem;
+  border: 1px solid #304ffe;
+  border-radius: 4px;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.3s;
+  background-color: #000;
+  color: #ffffff;
+}
+
+#search:focus {
+  border-color: #304ffe;
+  box-shadow: 0 0 0 0.2rem rgba(48, 79, 254, 0.25);
+}
+
+.navContainer label {
+  position: absolute;
+  left: 1rem;
+  color: #aaa;
+  pointer-events: none;
+  transition: all 0.3s;
+}
+
+#search:focus + label,
+#search:not(:placeholder-shown) + label {
+  transform: translateY(-1.8rem) translateX(-0.5rem);
+  font-size: 0.85rem;
+  color: #304ffe;
+  background-color: #000;
+  padding: 0 0.25rem;
+}
+
+.auth {
+  display: flex;
+  gap: 1rem;
+}
+
+.auth a {
+  padding: 0.5rem 1.5rem;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.auth a:first-child {
+  color: #304ffe;
+  border: 1px solid #304ffe;
+  background-color: transparent;
+}
+
+.auth a:first-child:hover {
+  background-color: #304ffe;
+  color: #fff;
+}
+
+.auth a:last-child {
+  background-color: #304ffe;
+  color: #fff;
+  border: 1px solid #304ffe;
+}
+
+.auth a:last-child:hover {
+  background-color: #5c6bc0;
+  border-color: #5c6bc0;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .navContainer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .navLink {
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .navContainer > span:nth-child(3) {
+    width: 100%;
+  }
+
+  #search {
+    width: 100%;
+  }
+
+  .auth {
+    width: 100%;
+  }
+
+  .auth a {
+    flex: 1;
+    text-align: center;
+  }
+}
