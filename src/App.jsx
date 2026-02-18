@@ -1,9 +1,14 @@
 import React from 'react'
+import Home from './components/Home.jsx'
+import Navbar from './components/Navbar.jsx'
 
-const App = () => {
+function App() {
   return (
     <div>
+      <Navbar />  
+      <Home />
       
+
     </div>
   )
 }
