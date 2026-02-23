@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;500;900&display=swap");
+@import "tailwindcss";
 
 :root {
   --accent: #0000ee;
@@ -20,6 +21,8 @@
 body {
   background: var(--bg);
   color: var(--text);
+  width: 100%;
+  overflow-x: hidden;
 }
 
 a {
@@ -30,8 +33,19 @@ a {
 button {
   font-family: "Roboto", sans-serif;
 }
+
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-12px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
