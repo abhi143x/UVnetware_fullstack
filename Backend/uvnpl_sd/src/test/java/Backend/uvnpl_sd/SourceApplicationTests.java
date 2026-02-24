@@ -1,10 +1,10 @@
-package Univeral_Booking.Uvnpl;
+package Backend.uvnpl_sd;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class UvnplSdApplicationTests {
+class SourceApplicationTests {
 
 	@Test
 	void contextLoads() {
