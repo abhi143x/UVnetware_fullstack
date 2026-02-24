@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainLayout from "../components/layouts/MainLayout.jsx";
 import Home from "../components/pages/Home.jsx";
+import Dashboard from "../components/pages/Dashboard.jsx";
+import Editor from "../components/editor/Editor.jsx";
 
 export default function AppRoutes() {
   return (
@@ -11,6 +13,22 @@ export default function AppRoutes() {
           element={
             <MainLayout>
               <Home />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <MainLayout>
+              <Dashboard />
+            </MainLayout>
+          }
+        />
+        <Route
+          path="/editor"
+          element={
+            <MainLayout>
+              <Editor />
             </MainLayout>
           }
         />
