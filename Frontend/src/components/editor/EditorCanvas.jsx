@@ -51,48 +51,24 @@ function isSeatInsideBounds(seat, bounds) {
   )
 }
 
-function buildHorizontalRowPoints(startPoint, endPoint) {
-  const snappedStart = snapPoint(startPoint)
-  const snappedEnd = snapPoint(endPoint)
-  const deltaX = snappedEnd.x - snappedStart.x
-  const direction = deltaX >= 0 ? 1 : -1
-  const stepCount = Math.round(Math.abs(deltaX) / GRID_SIZE)
+function buildRowPoints(startPoint, endPoint) {
+  const deltaX = endPoint.x - startPoint.x
+  const deltaY = endPoint.y - startPoint.y
+  const angle = Math.atan2(deltaY, deltaX)
+  const unitX = Math.cos(angle)
+  const unitY = Math.sin(angle)
+  const distance = Math.hypot(deltaX, deltaY)
+  const seatCount = Math.floor(distance / GRID_SIZE)
   const points = []
 
-  for (let step = 0; step <= stepCount; step += 1) {
+  for (let step = 0; step <= seatCount; step += 1) {
     points.push({
-      x: snappedStart.x + direction * step * GRID_SIZE,
-      y: snappedStart.y,
+      x: startPoint.x + unitX * (step * GRID_SIZE),
+      y: startPoint.y + unitY * (step * GRID_SIZE),
     })
   }
 
   return points
-}
-
-function buildVerticalRowPoints(startPoint, endPoint) {
-  const snappedStart = snapPoint(startPoint)
-  const snappedEnd = snapPoint(endPoint)
-  const deltaY = snappedEnd.y - snappedStart.y
-  const direction = deltaY >= 0 ? 1 : -1
-  const stepCount = Math.round(Math.abs(deltaY) / GRID_SIZE)
-  const points = []
-
-  for (let step = 0; step <= stepCount; step += 1) {
-    points.push({
-      x: snappedStart.x,
-      y: snappedStart.y + direction * step * GRID_SIZE,
-    })
-  }
-
-  return points
-}
-
-function buildRowPoints(startPoint, endPoint, orientation) {
-  if (orientation === 'vertical') {
-    return buildVerticalRowPoints(startPoint, endPoint)
-  }
-
-  return buildHorizontalRowPoints(startPoint, endPoint)
 }
 
 function normalizeAngleDelta(angle) {
@@ -369,7 +345,6 @@ function EditorCanvas({
         rowSessionRef.current = {
           startPoint: snappedStartPoint,
           currentPoint: snappedStartPoint,
-          orientation: null,
         }
 
         setRowPreviewPoints([snappedStartPoint])
@@ -509,25 +484,10 @@ function EditorCanvas({
           return
         }
 
-        const snappedPoint = snapPoint(worldPoint)
-        rowSession.currentPoint = snappedPoint
-
-        if (!rowSession.orientation) {
-          const deltaX = worldPoint.x - rowSession.startPoint.x
-          const deltaY = worldPoint.y - rowSession.startPoint.y
-
-          if (deltaX !== 0 || deltaY !== 0) {
-            rowSession.orientation =
-              Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical'
-          }
-        }
+        rowSession.currentPoint = worldPoint
 
         setRowPreviewPoints(
-          buildRowPoints(
-            rowSession.startPoint,
-            rowSession.currentPoint,
-            rowSession.orientation,
-          ),
+          buildRowPoints(rowSession.startPoint, rowSession.currentPoint),
         )
         return
       }
@@ -613,11 +573,7 @@ function EditorCanvas({
 
     const rowSession = rowSessionRef.current
     if (rowSession) {
-      const resolvedRowPoints = buildRowPoints(
-        rowSession.startPoint,
-        rowSession.currentPoint,
-        rowSession.orientation,
-      )
+      const resolvedRowPoints = buildRowPoints(rowSession.startPoint, rowSession.currentPoint)
       onRowCommit(resolvedRowPoints)
       stopRowBuilder()
       return

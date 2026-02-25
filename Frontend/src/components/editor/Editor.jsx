@@ -20,6 +20,21 @@ function createSeatId() {
   return `seat-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+function isOverlapping(x, y, seats) {
+  for (const seat of seats) {
+    const deltaX = x - seat.x
+    const deltaY = y - seat.y
+    const distance = Math.hypot(deltaX, deltaY)
+    const seatDiameter = (seat.radius ?? DEFAULT_SEAT_RADIUS) * 2
+
+    if (distance < seatDiameter) {
+      return true
+    }
+  }
+
+  return false
+}
+
 function Editor() {
   const [activeTool, setActiveTool] = useState(TOOL_SEAT)
   const [selectedSeatIds, setSelectedSeatIds] = useState([])
@@ -36,17 +51,23 @@ function Editor() {
         return
       }
 
-      setSeats((currentSeats) => [
-        ...currentSeats,
-        {
-          id: createSeatId(),
-          x: worldPoint.x,
-          y: worldPoint.y,
-          radius: DEFAULT_SEAT_RADIUS,
-          fill: DEFAULT_SEAT_FILL,
-          stroke: DEFAULT_SEAT_STROKE,
-        },
-      ])
+      setSeats((currentSeats) => {
+        if (isOverlapping(worldPoint.x, worldPoint.y, currentSeats)) {
+          return currentSeats
+        }
+
+        return [
+          ...currentSeats,
+          {
+            id: createSeatId(),
+            x: worldPoint.x,
+            y: worldPoint.y,
+            radius: DEFAULT_SEAT_RADIUS,
+            fill: DEFAULT_SEAT_FILL,
+            stroke: DEFAULT_SEAT_STROKE,
+          },
+        ]
+      })
     },
     [activeTool],
   )
@@ -78,19 +99,32 @@ function Editor() {
       return
     }
 
-    const seatUpdatesById = new Map(seatUpdates.map((update) => [update.id, update]))
+    setSeats((currentSeats) => {
+      const seatById = new Map(currentSeats.map((seat) => [seat.id, seat]))
+      const movedSeatIds = new Set(seatUpdates.map((update) => update.id))
+      const staticSeats = currentSeats.filter((seat) => !movedSeatIds.has(seat.id))
+      const acceptedMovedSeats = new Map()
 
-    setSeats((currentSeats) =>
-      currentSeats.map((seat) =>
-        seatUpdatesById.has(seat.id)
-          ? {
-              ...seat,
-              x: seatUpdatesById.get(seat.id).x,
-              y: seatUpdatesById.get(seat.id).y,
-            }
-          : seat,
-      ),
-    )
+      seatUpdates.forEach((update) => {
+        const currentSeat = seatById.get(update.id)
+        if (!currentSeat) {
+          return
+        }
+
+        const seatsToCheck = [...staticSeats, ...acceptedMovedSeats.values()]
+        if (isOverlapping(update.x, update.y, seatsToCheck)) {
+          return
+        }
+
+        acceptedMovedSeats.set(update.id, {
+          ...currentSeat,
+          x: update.x,
+          y: update.y,
+        })
+      })
+
+      return currentSeats.map((seat) => acceptedMovedSeats.get(seat.id) ?? seat)
+    })
   }, [])
 
   const handleMarqueeSelect = useCallback(
@@ -112,12 +146,20 @@ function Editor() {
         return
       }
 
+      const isClickedSeatSelected = selectedSeatIds.includes(seatId)
+
+      if (isClickedSeatSelected) {
+        const selectedSeatIdSet = new Set(selectedSeatIds)
+        setSeats((currentSeats) =>
+          currentSeats.filter((seat) => !selectedSeatIdSet.has(seat.id)),
+        )
+        setSelectedSeatIds([])
+        return
+      }
+
       setSeats((currentSeats) => currentSeats.filter((seat) => seat.id !== seatId))
-      setSelectedSeatIds((currentSelectedSeatIds) =>
-        currentSelectedSeatIds.filter((id) => id !== seatId),
-      )
     },
-    [activeTool],
+    [activeTool, selectedSeatIds],
   )
 
   const handleRowCommit = useCallback(
@@ -126,17 +168,26 @@ function Editor() {
         return
       }
 
-      setSeats((currentSeats) => [
-        ...currentSeats,
-        ...rowPoints.map((point) => ({
-          id: createSeatId(),
-          x: point.x,
-          y: point.y,
-          radius: DEFAULT_SEAT_RADIUS,
-          fill: DEFAULT_SEAT_FILL,
-          stroke: DEFAULT_SEAT_STROKE,
-        })),
-      ])
+      setSeats((currentSeats) => {
+        const nextSeats = [...currentSeats]
+
+        rowPoints.forEach((point) => {
+          if (isOverlapping(point.x, point.y, nextSeats)) {
+            return
+          }
+
+          nextSeats.push({
+            id: createSeatId(),
+            x: point.x,
+            y: point.y,
+            radius: DEFAULT_SEAT_RADIUS,
+            fill: DEFAULT_SEAT_FILL,
+            stroke: DEFAULT_SEAT_STROKE,
+          })
+        })
+
+        return nextSeats
+      })
     },
     [activeTool],
   )
@@ -147,17 +198,26 @@ function Editor() {
         return
       }
 
-      setSeats((currentSeats) => [
-        ...currentSeats,
-        ...arcPoints.map((point) => ({
-          id: createSeatId(),
-          x: point.x,
-          y: point.y,
-          radius: DEFAULT_SEAT_RADIUS,
-          fill: DEFAULT_SEAT_FILL,
-          stroke: DEFAULT_SEAT_STROKE,
-        })),
-      ])
+      setSeats((currentSeats) => {
+        const nextSeats = [...currentSeats]
+
+        arcPoints.forEach((point) => {
+          if (isOverlapping(point.x, point.y, nextSeats)) {
+            return
+          }
+
+          nextSeats.push({
+            id: createSeatId(),
+            x: point.x,
+            y: point.y,
+            radius: DEFAULT_SEAT_RADIUS,
+            fill: DEFAULT_SEAT_FILL,
+            stroke: DEFAULT_SEAT_STROKE,
+          })
+        })
+
+        return nextSeats
+      })
     },
     [activeTool],
   )
