@@ -3,6 +3,8 @@ import MainLayout from "../components/layouts/MainLayout.jsx";
 import Home from "../components/pages/Home.jsx";
 import Dashboard from "../components/pages/Dashboard.jsx";
 import Editor from "../components/editor/Editor.jsx";
+import Login from "../components/pages/auth/Login.jsx";
+import SignUp from "../components/pages/auth/Signup.jsx";
 
 export default function AppRoutes() {
   return (
@@ -31,6 +33,13 @@ export default function AppRoutes() {
               <Editor />
             </MainLayout>
           }
+        />
+        <Route
+          path="/login"
+          element=
+          {
+          <Login />
+        }
         />
       </Routes>
     </BrowserRouter>
