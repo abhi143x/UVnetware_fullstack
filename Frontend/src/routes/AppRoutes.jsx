@@ -34,12 +34,13 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
-        <Route
-          path="/login"
-          element=
-          {
-          <Login />
-        }
+        <Route 
+        path="/login" 
+        element={<Login />} 
+        />
+        <Route 
+        path="/signup"
+        element={<SignUp />}
         />
       </Routes>
     </BrowserRouter>
