@@ -5,6 +5,7 @@ import Dashboard from "../components/pages/Dashboard.jsx";
 import Editor from "../components/editor/Editor.jsx";
 import Login from "../components/pages/auth/Login.jsx";
 import SignUp from "../components/pages/auth/Signup.jsx";
+import Feature from "../components/pages/Feature.jsx";
 
 export default function AppRoutes() {
   return (
@@ -18,6 +19,7 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
+
         <Route
           path="/dashboard"
           element={
@@ -26,6 +28,7 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
+
         <Route
           path="/editor"
           element={
@@ -34,13 +37,18 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
-        <Route 
-        path="/login" 
-        element={<Login />} 
-        />
-        <Route 
-        path="/signup"
-        element={<SignUp />}
+
+        <Route path="/login" element={<Login />} />
+
+        <Route path="/signup" element={<SignUp />} />
+
+        <Route
+          path="/features"
+          element={
+            <MainLayout>
+              <Feature />
+            </MainLayout>
+          }
         />
       </Routes>
     </BrowserRouter>

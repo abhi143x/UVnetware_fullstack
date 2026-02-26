@@ -1,42 +1,33 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  FiMenu,
-  FiX,
-  FiHome,
-  FiEdit3,
-  FiTrendingUp,
-  FiLogIn,
-  FiArrowRight,
-} from "react-icons/fi";
+import { FiMenu, FiX } from "react-icons/fi";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
-    { name: "Home", href: "/", icon: FiHome },
+    { name: "Home", href: "/" },
     {
       name: "Dashboard",
       href: "/dashboard",
-      icon: FiTrendingUp,
       isButton: true,
     },
     {
       name: "Editor",
       href: "/editor",
-      icon: FiEdit3,
       isButton: true,
     },
-    { name: "Features", href: "#features", icon: FiTrendingUp },
+    { name: "Features", href: "/features", isButton: true },
   ];
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
       <div className="w-full px-12 sm:px-24 py-10 sm:py-14 flex items-center gap-8">
-        {/* SECTION 1: LOGO */}
+        {/* SECTION 1: Company Name */}
+
         <div className="flex-shrink-0">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="text-5xl font-black bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
+            <div className="text-5xl font-black bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-110 transition-transform duration-300">
               UV<span className="text-white">netware</span>
             </div>
           </Link>
@@ -45,7 +36,6 @@ export default function Navbar() {
         {/* SECTION 2: NAVIGATION (Center) */}
         <div className="hidden md:flex flex-1 justify-center items-center gap-8">
           {navItems.map((item) => {
-            const Icon = item.icon;
             if (item.isButton) {
               return (
                 <Link
@@ -70,17 +60,18 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* SECTION 3: AUTH BUTTONS (Right) */}
+        {/* SECTION 3: Login/Signup */}
+
         <div className="hidden md:flex flex-shrink-0 items-center gap-6">
           <Link
             to="/login"
-            className="px-5 py-2.5 text-white text-lg font-bold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors duration-300"
+            className="px-5 py-2.5 text-white text-lg font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300"
           >
             Login
           </Link>
           <Link
             to="/signup"
-            className="px-5 py-1  text-blue-800 text-lg font-bold rounded-lg border border-blue-600 hover:bg-gradient-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white transition-all duration-300"
+            className="px-5 py-2.5 text-white text-lg font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300"
           >
             Signup
           </Link>
@@ -107,7 +98,6 @@ export default function Navbar() {
         <div className="md:hidden bg-black/95 border-t border-blue-500/20 backdrop-blur-lg">
           <div className="px-8 py-4 space-y-2">
             {navItems.map((item) => {
-              const Icon = item.icon;
               if (item.isButton) {
                 return (
                   <Link
