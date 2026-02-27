@@ -4,6 +4,7 @@ const TOOLS = [
   { id: 'row', label: 'Row' },
   { id: 'arc', label: 'Arc' },
   { id: 'eraser', label: 'Eraser' },
+  { id: 'text', label: 'Text' },
 ]
 
 const TOOLBAR_CLASSNAME =

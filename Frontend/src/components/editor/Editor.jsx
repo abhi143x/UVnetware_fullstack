@@ -11,6 +11,7 @@ const TOOL_SEAT = 'seat'
 const TOOL_ROW = 'row'
 const TOOL_ARC = 'arc'
 const TOOL_ERASER = 'eraser'
+const TOOL_TEXT = 'text'
 
 function createSeatId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -39,6 +40,8 @@ function Editor() {
   const [activeTool, setActiveTool] = useState(TOOL_SEAT)
   const [selectedSeatIds, setSelectedSeatIds] = useState([])
   const [seats, setSeats] = useState([])
+  const [texts, setTexts] = useState([]) 
+  const [textPrompt, setTextPrompt] = useState(null)
 
   const handleWorldClick = useCallback(
     (worldPoint) => {
@@ -46,6 +49,11 @@ function Editor() {
         setSelectedSeatIds([])
         return
       }
+
+      if (activeTool === TOOL_TEXT) {
+         setTextPrompt({ x: worldPoint.x, y: worldPoint.y })
+         return
+        }
 
       if (activeTool !== TOOL_SEAT) {
         return
@@ -71,6 +79,21 @@ function Editor() {
     },
     [activeTool],
   )
+
+  const handleTextSubmit = (content) => {
+     if (content.trim() && textPrompt) {
+      setTexts((currentTexts) => [
+        ...currentTexts,
+        {
+          id: createSeatId(),
+          x: textPrompt.x,
+          y: textPrompt.y,
+          content: content.trim(),
+         },
+      ])
+    }
+     setTextPrompt(null)
+  }
 
   const handleSeatSelect = useCallback(
     (seatId, shiftKey) => {
@@ -223,12 +246,13 @@ function Editor() {
   )
 
   return (
-    <section className="flex h-full w-full bg-[#0e1319]">
+    <section className="relative flex h-full w-full bg-[#0e1319]">
       <Toolbar activeTool={activeTool} onToolChange={setActiveTool} />
       <div className="min-w-0 flex-1">
         <EditorCanvas
           activeTool={activeTool}
           seats={seats}
+          texts={texts}
           selectedSeatIds={selectedSeatIds}
           onWorldClick={handleWorldClick}
           onSeatSelect={handleSeatSelect}
@@ -239,6 +263,34 @@ function Editor() {
           onArcCommit={handleArcCommit}
         />
       </div>
+
+      {/*  New Text Input Dialog  */}
+     {textPrompt && (
+       <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#00000066]">
+          <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#11161c] p-5 shadow-2xl">
+            <h3 className="text-sm font-medium text-[#c9d6ea]">Add Label</h3>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Enter text..."
+              className="rounded border border-white/10 bg-[#0e1319] px-3 py-2 text-white outline-none focus:border-[#587cb3]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleTextSubmit(e.currentTarget.value)
+                if (e.key === 'Escape') setTextPrompt(null)
+              }}
+            />
+            <div className="mt-2 flex justify-end gap-2 text-sm">
+              <button onClick={() => setTextPrompt(null)} className="px-3 py-1 text-[#c9d6ea] hover:text-white">Cancel</button>
+              <button 
+                onClick={(e) => handleTextSubmit(e.currentTarget.parentElement.previousElementSibling.value)} 
+                className="rounded bg-[#587cb3] px-3 py-1 text-white hover:bg-[#688cc3]"
+              >
+                Add
+            </button>
+            </div>
+          </div>
+        </div>
+       )}
     </section>
   )
 }

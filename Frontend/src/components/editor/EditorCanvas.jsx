@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Layer, Line, Rect, Stage } from 'react-konva'
+import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
 
 const INITIAL_UNITS_PER_PIXEL = 7
 const MIN_UNITS_PER_PIXEL = 0.08
@@ -14,6 +14,7 @@ const TOOL_SEAT = 'seat'
 const TOOL_ROW = 'row'
 const TOOL_ARC = 'arc'
 const TOOL_ERASER = 'eraser'
+const TOOL_TEXT = 'text'
 const EDITOR_BACKGROUND =
   'radial-gradient(circle at 15% 20%, rgba(88, 124, 179, 0.08), transparent 32%), radial-gradient(circle at 85% 75%, rgba(46, 82, 132, 0.08), transparent 30%), #0d1218'
 const PREVIEW_SEAT_RADIUS = 12
@@ -155,6 +156,7 @@ function isPointInsideRect(clientX, clientY, rect) {
 function EditorCanvas({
   activeTool,
   seats,
+  texts = [],
   selectedSeatIds,
   onWorldClick,
   onSeatSelect,
@@ -869,7 +871,8 @@ function EditorCanvas({
     activeTool === TOOL_SEAT ||
     activeTool === TOOL_ROW ||
     activeTool === TOOL_ARC ||
-    activeTool === TOOL_ERASER
+    activeTool === TOOL_ERASER ||
+    activeTool === TOOL_TEXT
   ) {
     idleCursor = 'crosshair'
   }
@@ -959,6 +962,22 @@ function EditorCanvas({
               />
             )
           })}
+
+          {/* <-- Render Text Layer loop here */}
+          {texts.map((t) => (
+            <Text
+              key={t.id}
+              x={t.x}
+              y={t.y}
+              text={t.content}
+              fill="#c9d6ea"
+              fontSize={18}
+              fontFamily="system-ui, sans-serif"
+              align="center"
+              offsetX={t.content.length * 4.5} 
+              offsetY={9}
+            />
+          ))}
 
           {activeTool === TOOL_ROW &&
             rowPreviewPoints.map((point) => (
