@@ -158,6 +158,10 @@ function EditorCanvas({
   seats,
   texts = [],
   selectedSeatIds,
+  selectedTextIds = [], 
+  onTextSelect,
+  onTextsMove,
+  onTextErase,
   onWorldClick,
   onSeatSelect,
   onSeatsMove,
@@ -169,7 +173,7 @@ function EditorCanvas({
   const containerRef = useRef(null)
   const stageRef = useRef(null)
   const panSessionRef = useRef(null)
-  const seatDragSessionRef = useRef(null)
+  const dragSessionRef = useRef(null)
   const rowSessionRef = useRef(null)
   const arcSessionRef = useRef(null)
   const marqueeSessionRef = useRef(null)
@@ -187,7 +191,8 @@ function EditorCanvas({
     position: { x: 0, y: 0 },
   })
   const [isPanning, setIsPanning] = useState(false)
-  const [isDraggingSeat, setIsDraggingSeat] = useState(false)
+  const [isDraggingElement, setIsDraggingElement] = useState(false)
+  const [hoveredTextId, setHoveredTextId] = useState(null)
   const [hoveredSeatId, setHoveredSeatId] = useState(null)
   const [marqueeRect, setMarqueeRect] = useState(null)
   const [rowPreviewPoints, setRowPreviewPoints] = useState([])
@@ -195,6 +200,9 @@ function EditorCanvas({
 
   const selectedSeatIdSet = useMemo(() => new Set(selectedSeatIds), [selectedSeatIds])
   const seatsById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats])
+
+  const selectedTextIdSet = useMemo(() => new Set(selectedTextIds), [selectedTextIds])
+  const textsById = useMemo(() => new Map(texts.map((t) => [t.id, t])), [texts])
 
   useEffect(() => {
     cameraRef.current = camera
@@ -262,9 +270,9 @@ function EditorCanvas({
     setIsPanning(false)
   }, [])
 
-  const stopSeatDrag = useCallback(() => {
-    seatDragSessionRef.current = null
-    setIsDraggingSeat(false)
+  const stopElementDrag = useCallback(() => {
+    dragSessionRef.current = null
+    setIsDraggingElement(false)
   }, [])
 
   const stopMarqueeSelection = useCallback(() => {
@@ -405,7 +413,7 @@ function EditorCanvas({
 
   const handleStageMouseMove = useCallback(
     (event) => {
-      const dragSession = seatDragSessionRef.current
+      const dragSession = dragSessionRef.current
       if (dragSession) {
         if (!dragSession.hasMoved) {
           const deltaClientX = event.evt.clientX - dragSession.startClientX
@@ -426,8 +434,9 @@ function EditorCanvas({
         const deltaWorldX = worldPoint.x - dragSession.startWorld.x
         const deltaWorldY = worldPoint.y - dragSession.startWorld.y
         const seatUpdates = []
+        const textUpdates = []
 
-        dragSession.basePositionsById.forEach((basePosition, seatId) => {
+        dragSession.baseSeatPositionsById.forEach((basePosition, seatId) => {
           const nextPosition = snapPoint({
             x: basePosition.x + deltaWorldX,
             y: basePosition.y + deltaWorldY,
@@ -440,8 +449,21 @@ function EditorCanvas({
           })
         })
 
-        onSeatsMove(seatUpdates)
-        return
+        dragSession.baseTextPositionsById.forEach((basePosition, textId) => {
+          const nextPosition = snapPoint({
+             x: basePosition.x + deltaWorldX, 
+             y: basePosition.y + deltaWorldY 
+            })
+
+        textUpdates.push({ 
+          id: textId, 
+          x: nextPosition.x,
+          y: nextPosition.y })
+      })
+
+      if (seatUpdates.length) onSeatsMove(seatUpdates)
+      if (textUpdates.length) onTextsMove(textUpdates)
+      return
       }
 
       const arcSession = arcSessionRef.current
@@ -550,13 +572,13 @@ function EditorCanvas({
         },
       }))
     },
-    [getWorldPointFromStage, onSeatsMove],
+    [getWorldPointFromStage, onSeatsMove, onTextsMove],
   )
 
   const handleStageMouseUp = useCallback(() => {
-    const dragSession = seatDragSessionRef.current
+    const dragSession = dragSessionRef.current
     if (dragSession) {
-      stopSeatDrag()
+      stopElementDrag()
       return
     }
 
@@ -592,7 +614,11 @@ function EditorCanvas({
           .filter((seat) => isSeatInsideBounds(seat, selectionBounds))
           .map((seat) => seat.id)
 
-        onMarqueeSelect(seatIdsInBounds)
+        const textIdsInBounds = texts
+          .filter((text) => isSeatInsideBounds(text, selectionBounds))
+          .map((text) => text.id)
+
+        onMarqueeSelect(seatIdsInBounds, textIdsInBounds)
       }
 
       stopMarqueeSelection()
@@ -610,23 +636,25 @@ function EditorCanvas({
     onMarqueeSelect,
     onRowCommit,
     seats,
+    texts,
     stopArcBuilder,
     stopMarqueeSelection,
     stopPanning,
     stopRowBuilder,
-    stopSeatDrag,
+    stopElementDrag,
   ])
 
   const handleStageMouseLeave = useCallback(() => {
     if (activeTool === TOOL_ERASER) {
       setHoveredSeatId(null)
+      setHoveredTextId(null)
     }
   }, [activeTool])
 
   useEffect(() => {
     function hasActiveInteraction() {
       return Boolean(
-        seatDragSessionRef.current ||
+        dragSessionRef.current ||
           arcSessionRef.current ||
           rowSessionRef.current ||
           marqueeSessionRef.current ||
@@ -675,8 +703,8 @@ function EditorCanvas({
     }
 
     function handleWindowBlur() {
-      if (seatDragSessionRef.current) {
-        stopSeatDrag()
+      if (dragSessionRef.current) {
+        stopElementDrag()
       }
 
       if (arcSessionRef.current) {
@@ -712,7 +740,7 @@ function EditorCanvas({
     stopMarqueeSelection,
     stopPanning,
     stopRowBuilder,
-    stopSeatDrag,
+    stopElementDrag,
   ])
 
   const handleStageClick = useCallback(
@@ -732,7 +760,7 @@ function EditorCanvas({
         return
       }
 
-      if (activeTool === TOOL_SEAT) {
+      if (activeTool === TOOL_SEAT || activeTool === TOOL_TEXT) {
         onWorldClick(snapPoint(worldPoint))
         return
       }
@@ -742,8 +770,8 @@ function EditorCanvas({
     [activeTool, getWorldPointFromStage, onWorldClick],
   )
 
-  const handleSeatClick = useCallback(
-    (event, seatId) => {
+  const handleElementClick = useCallback(
+    (event, type, id) => {
       event.cancelBubble = true
 
       if (suppressNextClickRef.current) {
@@ -752,67 +780,78 @@ function EditorCanvas({
       }
 
       if (activeTool === TOOL_SELECT) {
-        onSeatSelect(seatId, Boolean(event.evt.shiftKey))
+        if (type === 'seat') onSeatSelect(id, Boolean(event.evt.shiftKey))
+        if (type === 'text') onTextSelect(id, Boolean(event.evt.shiftKey))
         return
       }
 
       if (activeTool === TOOL_ERASER) {
-        setHoveredSeatId(null)
-        onSeatErase(seatId)
+        if (type === 'seat') { setHoveredSeatId(null); onSeatErase(id) }
+        if (type === 'text') { setHoveredTextId(null); onTextErase(id) }
       }
     },
-    [activeTool, onSeatErase, onSeatSelect],
+    [activeTool, onSeatSelect, onTextSelect, onSeatErase, onTextErase],
   )
 
-  const handleSeatMouseDown = useCallback(
-    (event, seat) => {
+  const handleElementMouseDown = useCallback(
+    (event, type, id) => {
       event.cancelBubble = true
 
-      if (activeTool === TOOL_ERASER) {
+      if (activeTool === TOOL_ERASER || activeTool !== TOOL_SELECT) {
         return
       }
 
-      if (activeTool !== TOOL_SELECT) {
-        return
-      }
-
-      if (event.evt.button !== 0 || !selectedSeatIdSet.has(seat.id)) {
-        return
-      }
+      const isSelected = type === 'seat' ? selectedSeatIdSet.has(id) : selectedTextIdSet.has(id)
+      if (event.evt.button !== 0 || !isSelected) return
 
       const worldPoint = getWorldPointFromStage()
       if (!worldPoint) {
         return
       }
 
-      const basePositionsById = new Map()
+      const baseSeatPositionsById = new Map()
       selectedSeatIds.forEach((seatId) => {
         const selectedSeat = seatsById.get(seatId)
         if (selectedSeat) {
-          basePositionsById.set(seatId, { x: selectedSeat.x, y: selectedSeat.y })
+          baseSeatPositionsById.set(seatId, { x: selectedSeat.x, y: selectedSeat.y })
         }
       })
 
-      if (basePositionsById.size === 0) {
-        return
+      const baseTextPositionsById = new Map()
+      selectedTextIds.forEach((textId) => {
+      const selectedText = textsById.get(textId)
+      if (selectedText) {
+        baseTextPositionsById.set(textId, { x: selectedText.x, y: selectedText.y })
+      }
+    })
+
+     if (
+        baseSeatPositionsById.size === 0 &&
+        baseTextPositionsById.size === 0
+      ) {
+      return
       }
 
-      seatDragSessionRef.current = {
+      dragSessionRef.current = {
         startClientX: event.evt.clientX,
         startClientY: event.evt.clientY,
         startWorld: worldPoint,
-        basePositionsById,
+        baseSeatPositionsById,
+        baseTextPositionsById,
         hasMoved: false,
       }
 
-      setIsDraggingSeat(true)
+      setIsDraggingElement(true)
     },
     [
       activeTool,
       getWorldPointFromStage,
       seatsById,
+      textsById,
       selectedSeatIdSet,
+      selectedTextIdSet,
       selectedSeatIds,
+      selectedTextIds
     ],
   )
 
@@ -877,7 +916,7 @@ function EditorCanvas({
     idleCursor = 'crosshair'
   }
 
-  const cursor = isPanning || isDraggingSeat ? 'grabbing' : idleCursor
+  const cursor = isPanning || isDraggingElement ? 'grabbing' : idleCursor
 
   return (
     <section
@@ -955,8 +994,8 @@ function EditorCanvas({
                       : seat.stroke
                 }
                 strokeWidth={isEraseHovered || isSelected ? 3 : 2}
-                onClick={(event) => handleSeatClick(event, seat.id)}
-                onMouseDown={(event) => handleSeatMouseDown(event, seat)}
+                onClick={(event) => handleElementClick(event, 'seat', seat.id)}
+                onMouseDown={(event) => handleElementMouseDown(event, 'seat', seat.id)}
                 onMouseEnter={() => handleSeatMouseEnter(seat.id)}
                 onMouseLeave={handleSeatMouseLeave}
               />
@@ -964,20 +1003,29 @@ function EditorCanvas({
           })}
 
           {/* <-- Render Text Layer loop here */}
-          {texts.map((t) => (
-            <Text
-              key={t.id}
-              x={t.x}
-              y={t.y}
-              text={t.content}
-              fill="#c9d6ea"
-              fontSize={18}
-              fontFamily="system-ui, sans-serif"
-              align="center"
-              offsetX={t.content.length * 4.5} 
-              offsetY={9}
-            />
-          ))}
+          {texts.map((t) => {
+            const isSelected = selectedTextIdSet.has(t.id)
+            const isEraseHovered = activeTool === TOOL_ERASER && t.id === hoveredTextId
+
+            return (
+              <Text
+                key={t.id}
+                x={t.x}
+                y={t.y}
+                text={t.content}
+                fill={isEraseHovered ? '#ff7a87' : isSelected ? '#81b8ff' : '#c9d6ea'}
+                fontSize={18}
+                fontFamily="system-ui, sans-serif"
+                align="center"
+                offsetX={t.content.length * 4.5} 
+                offsetY={9}
+                onClick={(e) => handleElementClick(e, 'text', t.id)}
+                onMouseDown={(e) => handleElementMouseDown(e, 'text', t.id)}
+                onMouseEnter={() => activeTool === TOOL_ERASER && setHoveredTextId(t.id)}
+                onMouseLeave={() => activeTool === TOOL_ERASER && setHoveredTextId(null)}
+              />
+            )
+          })}
 
           {activeTool === TOOL_ROW &&
             rowPreviewPoints.map((point) => (

@@ -39,6 +39,7 @@ function isOverlapping(x, y, seats) {
 function Editor() {
   const [activeTool, setActiveTool] = useState(TOOL_SEAT)
   const [selectedSeatIds, setSelectedSeatIds] = useState([])
+  const [selectedTextIds, setSelectedTextIds] = useState([])
   const [seats, setSeats] = useState([])
   const [texts, setTexts] = useState([]) 
   const [textPrompt, setTextPrompt] = useState(null)
@@ -47,6 +48,7 @@ function Editor() {
     (worldPoint) => {
       if (activeTool === TOOL_SELECT) {
         setSelectedSeatIds([])
+        setSelectedTextIds([])
         return
       }
 
@@ -117,6 +119,19 @@ function Editor() {
     [activeTool],
   )
 
+  const handleTextSelect = useCallback(
+    (textId, shiftKey) => {
+      if (activeTool !== TOOL_SELECT) return
+
+      setSelectedTextIds((current) => {
+        if (!shiftKey) return [textId]
+        if (current.includes(textId)) return current.filter((id) => id !== textId)
+        return [...current, textId]
+      })
+    },
+    [activeTool]
+  )
+
   const handleSeatsMove = useCallback((seatUpdates) => {
     if (!seatUpdates.length) {
       return
@@ -150,15 +165,27 @@ function Editor() {
     })
   }, [])
 
-  const handleMarqueeSelect = useCallback(
-    (seatIds) => {
-      if (activeTool !== TOOL_SELECT || seatIds.length === 0) {
-        return
-      }
+  const handleTextsMove = useCallback((textUpdates) => {
+    if (!textUpdates.length) return
+    setTexts((currentTexts) => {
+      const updatesById = new Map(textUpdates.map(u => [u.id, u]))
+      return currentTexts.map(t => {
+        const update = updatesById.get(t.id)
+        return update ? { ...t, x: update.x, y: update.y } : t
+      })
+    })
+  }, [])
 
-      setSelectedSeatIds((currentSelectedSeatIds) => [
-        ...new Set([...currentSelectedSeatIds, ...seatIds]),
-      ])
+  const handleMarqueeSelect = useCallback(
+    (seatIds, textIds) => {
+      if (activeTool !== TOOL_SELECT || (seatIds.length === 0 && textIds.length === 0)) return
+
+      if (seatIds.length > 0) {
+        setSelectedSeatIds((current) => [...new Set([...current, ...seatIds])])
+      }
+      if (textIds.length > 0) {
+        setSelectedTextIds((current) => [...new Set([...current, ...textIds])])
+      }
     },
     [activeTool],
   )
@@ -183,6 +210,22 @@ function Editor() {
       setSeats((currentSeats) => currentSeats.filter((seat) => seat.id !== seatId))
     },
     [activeTool, selectedSeatIds],
+  )
+
+  const handleTextErase = useCallback(
+    (textId) => {
+      if (activeTool !== TOOL_ERASER) return
+      const isSelected = selectedTextIds.includes(textId)
+
+      if (isSelected) {
+        const selectedSet = new Set(selectedTextIds)
+        setTexts((current) => current.filter((t) => !selectedSet.has(t.id)))
+        setSelectedTextIds([])
+        return
+      }
+      setTexts((current) => current.filter((t) => t.id !== textId))
+    },
+    [activeTool, selectedTextIds]
   )
 
   const handleRowCommit = useCallback(
@@ -254,11 +297,15 @@ function Editor() {
           seats={seats}
           texts={texts}
           selectedSeatIds={selectedSeatIds}
+          selectedTextIds={selectedTextIds}
           onWorldClick={handleWorldClick}
           onSeatSelect={handleSeatSelect}
+          onTextSelect={handleTextSelect}
           onSeatsMove={handleSeatsMove}
+          onTextsMove={handleTextsMove}
           onMarqueeSelect={handleMarqueeSelect}
           onSeatErase={handleSeatErase}
+          onTextErase={handleTextErase}
           onRowCommit={handleRowCommit}
           onArcCommit={handleArcCommit}
         />
