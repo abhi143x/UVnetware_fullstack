@@ -1,11 +1,4 @@
-const TOOLS = [
-  { id: 'select', label: 'Select' },
-  { id: 'seat', label: 'Seat' },
-  { id: 'row', label: 'Row' },
-  { id: 'arc', label: 'Arc' },
-  { id: 'eraser', label: 'Eraser' },
-  { id: 'text', label: 'Text' },
-]
+import { TOOLS } from './editorConstants'
 
 const TOOLBAR_CLASSNAME =
   'h-screen w-[72px] shrink-0 flex flex-col items-center gap-3 border-r border-white/5 bg-[#11161c] pt-4'

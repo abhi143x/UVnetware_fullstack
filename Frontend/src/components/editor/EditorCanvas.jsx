@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
+import { Circle, Layer, Rect, Stage, Text } from 'react-konva'
+import {
+  TOOL_ARC,
+  TOOL_ERASER,
+  TOOL_ROW,
+  TOOL_SEAT,
+  TOOL_SELECT,
+  TOOL_TEXT,
+} from './editorConstants'
 
 const INITIAL_UNITS_PER_PIXEL = 7
 const MIN_UNITS_PER_PIXEL = 0.08
@@ -7,31 +15,18 @@ const MAX_UNITS_PER_PIXEL = 8
 const MIN_SCALE = 1 / MAX_UNITS_PER_PIXEL
 const MAX_SCALE = 1 / MIN_UNITS_PER_PIXEL
 const GRID_SIZE = 40
-const MAJOR_GRID_STEP = GRID_SIZE * 5
+const ROW_ANGLE_SNAP_DEGREES = 15
+const DEGREES_PER_RADIAN = 180 / Math.PI
+const RADIANS_PER_DEGREE = Math.PI / 180
 const PAN_CLICK_TOLERANCE = 4
-const TOOL_SELECT = 'select'
-const TOOL_SEAT = 'seat'
-const TOOL_ROW = 'row'
-const TOOL_ARC = 'arc'
-const TOOL_ERASER = 'eraser'
-const TOOL_TEXT = 'text'
-const EDITOR_BACKGROUND =
-  'radial-gradient(circle at 15% 20%, rgba(88, 124, 179, 0.08), transparent 32%), radial-gradient(circle at 85% 75%, rgba(46, 82, 132, 0.08), transparent 30%), #0d1218'
 const PREVIEW_SEAT_RADIUS = 12
+const MIN_ARC_COMMIT_RADIUS = PREVIEW_SEAT_RADIUS * 0.75
+const MIN_ARC_COMMIT_SWEEP = 4 * RADIANS_PER_DEGREE
+
+// ─── Pure Math Utilities ──────────────────────────────────────────────────────
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max)
-}
-
-function snap(value) {
-  return Math.round(value / GRID_SIZE) * GRID_SIZE
-}
-
-function snapPoint(point) {
-  return {
-    x: snap(point.x),
-    y: snap(point.y),
-  }
 }
 
 function buildSelectionBounds(startPoint, endPoint) {
@@ -52,12 +47,22 @@ function isSeatInsideBounds(seat, bounds) {
   )
 }
 
-function buildRowPoints(startPoint, endPoint) {
+function resolveRowAngle(rawAngle, shiftKey) {
+  const angleDeg = rawAngle * DEGREES_PER_RADIAN
+  const finalAngleDeg = shiftKey
+    ? angleDeg
+    : Math.round(angleDeg / ROW_ANGLE_SNAP_DEGREES) * ROW_ANGLE_SNAP_DEGREES
+
+  return finalAngleDeg * RADIANS_PER_DEGREE
+}
+
+function buildRowPoints(startPoint, endPoint, shiftKey) {
   const deltaX = endPoint.x - startPoint.x
   const deltaY = endPoint.y - startPoint.y
-  const angle = Math.atan2(deltaY, deltaX)
-  const unitX = Math.cos(angle)
-  const unitY = Math.sin(angle)
+  const rawAngle = Math.atan2(deltaY, deltaX)
+  const finalAngle = resolveRowAngle(rawAngle, shiftKey)
+  const unitX = Math.cos(finalAngle)
+  const unitY = Math.sin(finalAngle)
   const distance = Math.hypot(deltaX, deltaY)
   const seatCount = Math.floor(distance / GRID_SIZE)
   const points = []
@@ -72,6 +77,11 @@ function buildRowPoints(startPoint, endPoint) {
   return points
 }
 
+/**
+ * Normalizes an angle delta into the range (-π, π].
+ * Used for small frame-to-frame angle deltas so they correctly
+ * wrap at the ±180° boundary without accumulating drift.
+ */
 function normalizeAngleDelta(angle) {
   let normalizedAngle = angle
 
@@ -86,19 +96,28 @@ function normalizeAngleDelta(angle) {
   return normalizedAngle
 }
 
-function buildArcPoints(centerPoint, radius, startAngle, endAngle) {
-  if (radius <= 0 || startAngle === null || endAngle === null) {
+/**
+ * Builds evenly-spaced points along a circular arc.
+ *
+ * @param centerPoint  Arc origin in world coords
+ * @param radius       Arc radius in world units
+ * @param startAngle   Angle (radians) where the arc begins
+ * @param totalSweep   Signed total angular sweep (radians).
+ *                     Positive = counter-clockwise, negative = clockwise.
+ *                     Supports any magnitude — arcs > 180° and full circles work.
+ */
+function buildArcPoints(centerPoint, radius, startAngle, totalSweep) {
+  if (radius <= 0 || startAngle === null || totalSweep === null) {
     return [centerPoint]
   }
 
-  const angularSpan = normalizeAngleDelta(endAngle - startAngle)
-  const arcLength = Math.abs(angularSpan) * radius
+  const arcLength = Math.abs(totalSweep) * radius
 
   if (arcLength < 1) {
     return [
       {
-        x: centerPoint.x + radius * Math.cos(endAngle),
-        y: centerPoint.y + radius * Math.sin(endAngle),
+        x: centerPoint.x + radius * Math.cos(startAngle + totalSweep),
+        y: centerPoint.y + radius * Math.sin(startAngle + totalSweep),
       },
     ]
   }
@@ -108,7 +127,7 @@ function buildArcPoints(centerPoint, radius, startAngle, endAngle) {
 
   for (let step = 0; step <= segmentCount; step += 1) {
     const progress = step / segmentCount
-    const angle = startAngle + angularSpan * progress
+    const angle = startAngle + totalSweep * progress
 
     points.push({
       x: centerPoint.x + radius * Math.cos(angle),
@@ -119,22 +138,12 @@ function buildArcPoints(centerPoint, radius, startAngle, endAngle) {
   return points
 }
 
-function buildGridLines(bounds, step) {
-  const lines = []
-  const startX = Math.floor(bounds.x / step) * step
-  const endX = Math.ceil((bounds.x + bounds.width) / step) * step
-  const startY = Math.floor(bounds.y / step) * step
-  const endY = Math.ceil((bounds.y + bounds.height) / step) * step
-
-  for (let x = startX; x <= endX; x += step) {
-    lines.push([x, startY, x, endY])
-  }
-
-  for (let y = startY; y <= endY; y += step) {
-    lines.push([startX, y, endX, y])
-  }
-
-  return lines
+function canCommitArc(arcSession) {
+  return (
+    arcSession.startAngle !== null &&
+    arcSession.radius >= MIN_ARC_COMMIT_RADIUS &&
+    Math.abs(arcSession.totalSweep) >= MIN_ARC_COMMIT_SWEEP
+  )
 }
 
 function screenToWorldPoint(screenPoint, camera) {
@@ -153,33 +162,43 @@ function isPointInsideRect(clientX, clientY, rect) {
   )
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 function EditorCanvas({
   activeTool,
   seats,
   texts = [],
   selectedSeatIds,
-  selectedTextIds = [], 
-  onTextSelect,
-  onTextsMove,
-  onTextErase,
+  selectedTextIds = [],
   onWorldClick,
   onSeatSelect,
+  onTextSelect,
+  onSmartRowSelect,
   onSeatsMove,
+  onTextsMove,
   onMarqueeSelect,
   onSeatErase,
+  onTextErase,
   onRowCommit,
   onArcCommit,
 }) {
   const containerRef = useRef(null)
   const stageRef = useRef(null)
   const panSessionRef = useRef(null)
-  const dragSessionRef = useRef(null)
+  const seatDragSessionRef = useRef(null)
   const rowSessionRef = useRef(null)
   const arcSessionRef = useRef(null)
   const marqueeSessionRef = useRef(null)
+  const pendingSeatUpdatesRef = useRef(null)
+  const seatUpdateRafRef = useRef(null)
   const suppressNextClickRef = useRef(false)
   const previousViewportRef = useRef({ width: 1, height: 1 })
   const isInitializedRef = useRef(false)
+  const seatsRef = useRef(seats)
+  const textsRef = useRef(texts)
+  const onArcCommitRef = useRef(onArcCommit)
+  const onRowCommitRef = useRef(onRowCommit)
+  const onMarqueeSelectRef = useRef(onMarqueeSelect)
   const cameraRef = useRef({
     scale: 1 / INITIAL_UNITS_PER_PIXEL,
     position: { x: 0, y: 0 },
@@ -191,22 +210,51 @@ function EditorCanvas({
     position: { x: 0, y: 0 },
   })
   const [isPanning, setIsPanning] = useState(false)
-  const [isDraggingElement, setIsDraggingElement] = useState(false)
-  const [hoveredTextId, setHoveredTextId] = useState(null)
+  const [isDraggingSeat, setIsDraggingSeat] = useState(false)
   const [hoveredSeatId, setHoveredSeatId] = useState(null)
+  const [hoveredTextId, setHoveredTextId] = useState(null)
   const [marqueeRect, setMarqueeRect] = useState(null)
   const [rowPreviewPoints, setRowPreviewPoints] = useState([])
   const [arcPreviewPoints, setArcPreviewPoints] = useState([])
 
   const selectedSeatIdSet = useMemo(() => new Set(selectedSeatIds), [selectedSeatIds])
   const seatsById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats])
-
   const selectedTextIdSet = useMemo(() => new Set(selectedTextIds), [selectedTextIds])
-  const textsById = useMemo(() => new Map(texts.map((t) => [t.id, t])), [texts])
+  const textsById = useMemo(() => new Map(texts.map((textItem) => [textItem.id, textItem])), [texts])
 
   useEffect(() => {
     cameraRef.current = camera
   }, [camera])
+
+  useEffect(() => {
+    seatsRef.current = seats
+  }, [seats])
+
+  useEffect(() => {
+    textsRef.current = texts
+  }, [texts])
+
+  useEffect(() => {
+    onArcCommitRef.current = onArcCommit
+  }, [onArcCommit])
+
+  useEffect(() => {
+    onRowCommitRef.current = onRowCommit
+  }, [onRowCommit])
+
+  useEffect(() => {
+    onMarqueeSelectRef.current = onMarqueeSelect
+  }, [onMarqueeSelect])
+
+  useEffect(() => {
+    return () => {
+      if (seatUpdateRafRef.current !== null) {
+        window.cancelAnimationFrame(seatUpdateRafRef.current)
+      }
+    }
+  }, [])
+
+  // ── Viewport resize observer ──────────────────────────────────────────────
 
   useEffect(() => {
     const container = containerRef.current
@@ -228,6 +276,8 @@ function EditorCanvas({
     resizeObserver.observe(container)
     return () => resizeObserver.disconnect()
   }, [])
+
+  // ── Camera: center on viewport resize ────────────────────────────────────
 
   useEffect(() => {
     if (viewport.width <= 0 || viewport.height <= 0) {
@@ -265,15 +315,53 @@ function EditorCanvas({
     })
   }, [viewport])
 
+  // ── Session stop helpers ──────────────────────────────────────────────────
+
   const stopPanning = useCallback(() => {
     panSessionRef.current = null
     setIsPanning(false)
   }, [])
 
-  const stopElementDrag = useCallback(() => {
-    dragSessionRef.current = null
-    setIsDraggingElement(false)
-  }, [])
+  const flushPendingSeatUpdates = useCallback(() => {
+    if (seatUpdateRafRef.current !== null) {
+      window.cancelAnimationFrame(seatUpdateRafRef.current)
+      seatUpdateRafRef.current = null
+    }
+
+    const pendingSeatUpdates = pendingSeatUpdatesRef.current
+    pendingSeatUpdatesRef.current = null
+
+    if (pendingSeatUpdates) {
+      onSeatsMove(pendingSeatUpdates)
+    }
+  }, [onSeatsMove])
+
+  const queueSeatUpdates = useCallback(
+    (seatUpdates) => {
+      pendingSeatUpdatesRef.current = seatUpdates
+
+      if (seatUpdateRafRef.current !== null) {
+        return
+      }
+
+      seatUpdateRafRef.current = window.requestAnimationFrame(() => {
+        seatUpdateRafRef.current = null
+        const pendingSeatUpdates = pendingSeatUpdatesRef.current
+        pendingSeatUpdatesRef.current = null
+
+        if (pendingSeatUpdates) {
+          onSeatsMove(pendingSeatUpdates)
+        }
+      })
+    },
+    [onSeatsMove],
+  )
+
+  const stopSeatDrag = useCallback(() => {
+    flushPendingSeatUpdates()
+    seatDragSessionRef.current = null
+    setIsDraggingSeat(false)
+  }, [flushPendingSeatUpdates])
 
   const stopMarqueeSelection = useCallback(() => {
     marqueeSessionRef.current = null
@@ -304,6 +392,8 @@ function EditorCanvas({
     return screenToWorldPoint(pointerPosition, cameraRef.current)
   }, [])
 
+  // ── Zoom ──────────────────────────────────────────────────────────────────
+
   const handleWheel = useCallback((event) => {
     event.evt.preventDefault()
 
@@ -332,6 +422,8 @@ function EditorCanvas({
     })
   }, [])
 
+  // ── Mouse Down ────────────────────────────────────────────────────────────
+
   const handleStageMouseDown = useCallback(
     (event) => {
       if (event.evt.button !== 0) {
@@ -351,13 +443,13 @@ function EditorCanvas({
           return
         }
 
-        const snappedStartPoint = snapPoint(worldPoint)
         rowSessionRef.current = {
-          startPoint: snappedStartPoint,
-          currentPoint: snappedStartPoint,
+          startPoint: worldPoint,
+          currentPoint: worldPoint,
+          isShiftPressed: false,
         }
 
-        setRowPreviewPoints([snappedStartPoint])
+        setRowPreviewPoints([worldPoint])
         return
       }
 
@@ -367,15 +459,18 @@ function EditorCanvas({
           return
         }
 
-        const centerPoint = snapPoint(worldPoint)
+        // Arc session tracks cumulative sweep so arcs > 180° work correctly.
+        // previousAngle + totalSweep: frame-to-frame delta is always small
+        // so normalizeAngleDelta wraps it safely; the running sum is unbounded.
         arcSessionRef.current = {
-          centerPoint,
+          centerPoint: worldPoint,
           radius: 0,
           startAngle: null,
-          endAngle: null,
+          previousAngle: null,
+          totalSweep: 0,
         }
 
-        setArcPreviewPoints([centerPoint])
+        setArcPreviewPoints([worldPoint])
         return
       }
 
@@ -390,6 +485,7 @@ function EditorCanvas({
           startClientY: event.evt.clientY,
           startWorld: worldPoint,
           currentWorld: worldPoint,
+          isShiftPressed: Boolean(event.evt.shiftKey),
           hasMoved: false,
         }
 
@@ -411,9 +507,12 @@ function EditorCanvas({
     [activeTool, getWorldPointFromStage],
   )
 
+  // ── Mouse Move ────────────────────────────────────────────────────────────
+
   const handleStageMouseMove = useCallback(
     (event) => {
-      const dragSession = dragSessionRef.current
+      // ── Seat drag ──────────────────────────────────────────────────────────
+      const dragSession = seatDragSessionRef.current
       if (dragSession) {
         if (!dragSession.hasMoved) {
           const deltaClientX = event.evt.clientX - dragSession.startClientX
@@ -437,35 +536,32 @@ function EditorCanvas({
         const textUpdates = []
 
         dragSession.baseSeatPositionsById.forEach((basePosition, seatId) => {
-          const nextPosition = snapPoint({
-            x: basePosition.x + deltaWorldX,
-            y: basePosition.y + deltaWorldY,
-          })
-
           seatUpdates.push({
             id: seatId,
-            x: nextPosition.x,
-            y: nextPosition.y,
+            x: basePosition.x + deltaWorldX,
+            y: basePosition.y + deltaWorldY,
           })
         })
 
         dragSession.baseTextPositionsById.forEach((basePosition, textId) => {
-          const nextPosition = snapPoint({
-             x: basePosition.x + deltaWorldX, 
-             y: basePosition.y + deltaWorldY 
-            })
+          textUpdates.push({
+            id: textId,
+            x: basePosition.x + deltaWorldX,
+            y: basePosition.y + deltaWorldY,
+          })
+        })
 
-        textUpdates.push({ 
-          id: textId, 
-          x: nextPosition.x,
-          y: nextPosition.y })
-      })
+        if (seatUpdates.length > 0) {
+          queueSeatUpdates(seatUpdates)
+        }
 
-      if (seatUpdates.length) onSeatsMove(seatUpdates)
-      if (textUpdates.length) onTextsMove(textUpdates)
-      return
+        if (textUpdates.length > 0) {
+          onTextsMove(textUpdates)
+        }
+        return
       }
 
+      // ── Arc builder ────────────────────────────────────────────────────────
       const arcSession = arcSessionRef.current
       if (arcSession) {
         const worldPoint = getWorldPointFromStage()
@@ -483,11 +579,20 @@ function EditorCanvas({
         }
 
         const currentAngle = Math.atan2(deltaY, deltaX)
+
         if (arcSession.startAngle === null) {
+          // First move after mousedown: anchor the start
           arcSession.startAngle = currentAngle
+          arcSession.previousAngle = currentAngle
         }
 
-        arcSession.endAngle = currentAngle
+        // Accumulate the angle delta frame-by-frame.
+        // Using normalizeAngleDelta on each tiny delta (always < π) means
+        // crossing the ±180° line works correctly and the running totalSweep
+        // is unbounded — enabling arcs larger than a semicircle or full circles.
+        const angleDelta = normalizeAngleDelta(currentAngle - arcSession.previousAngle)
+        arcSession.totalSweep += angleDelta
+        arcSession.previousAngle = currentAngle
         arcSession.radius = radius
 
         setArcPreviewPoints(
@@ -495,12 +600,13 @@ function EditorCanvas({
             arcSession.centerPoint,
             arcSession.radius,
             arcSession.startAngle,
-            arcSession.endAngle,
+            arcSession.totalSweep,
           ),
         )
         return
       }
 
+      // ── Row builder ────────────────────────────────────────────────────────
       const rowSession = rowSessionRef.current
       if (rowSession) {
         const worldPoint = getWorldPointFromStage()
@@ -509,13 +615,19 @@ function EditorCanvas({
         }
 
         rowSession.currentPoint = worldPoint
+        rowSession.isShiftPressed = Boolean(event.evt.shiftKey)
 
         setRowPreviewPoints(
-          buildRowPoints(rowSession.startPoint, rowSession.currentPoint),
+          buildRowPoints(
+            rowSession.startPoint,
+            rowSession.currentPoint,
+            rowSession.isShiftPressed,
+          ),
         )
         return
       }
 
+      // ── Marquee selection ──────────────────────────────────────────────────
       const marqueeSession = marqueeSessionRef.current
       if (marqueeSession) {
         const worldPoint = getWorldPointFromStage()
@@ -524,6 +636,7 @@ function EditorCanvas({
         }
 
         marqueeSession.currentWorld = worldPoint
+        marqueeSession.isShiftPressed = Boolean(event.evt.shiftKey)
 
         if (!marqueeSession.hasMoved) {
           const deltaX = event.evt.clientX - marqueeSession.startClientX
@@ -542,6 +655,7 @@ function EditorCanvas({
         return
       }
 
+      // ── Pan ────────────────────────────────────────────────────────────────
       const panSession = panSessionRef.current
       if (!panSession) {
         return
@@ -572,33 +686,42 @@ function EditorCanvas({
         },
       }))
     },
-    [getWorldPointFromStage, onSeatsMove, onTextsMove],
+    [getWorldPointFromStage, onTextsMove, queueSeatUpdates],
   )
 
+  // ── Mouse Up ──────────────────────────────────────────────────────────────
+
   const handleStageMouseUp = useCallback(() => {
-    const dragSession = dragSessionRef.current
+    const dragSession = seatDragSessionRef.current
     if (dragSession) {
-      stopElementDrag()
+      stopSeatDrag()
       return
     }
 
     const arcSession = arcSessionRef.current
     if (arcSession) {
-      const resolvedArcPoints = buildArcPoints(
-        arcSession.centerPoint,
-        arcSession.radius,
-        arcSession.startAngle,
-        arcSession.endAngle,
-      )
-      onArcCommit(resolvedArcPoints)
+      if (canCommitArc(arcSession)) {
+        const resolvedArcPoints = buildArcPoints(
+          arcSession.centerPoint,
+          arcSession.radius,
+          arcSession.startAngle,
+          arcSession.totalSweep,
+        )
+        onArcCommitRef.current(resolvedArcPoints)
+      }
+
       stopArcBuilder()
       return
     }
 
     const rowSession = rowSessionRef.current
     if (rowSession) {
-      const resolvedRowPoints = buildRowPoints(rowSession.startPoint, rowSession.currentPoint)
-      onRowCommit(resolvedRowPoints)
+      const resolvedRowPoints = buildRowPoints(
+        rowSession.startPoint,
+        rowSession.currentPoint,
+        rowSession.isShiftPressed,
+      )
+      onRowCommitRef.current(resolvedRowPoints)
       stopRowBuilder()
       return
     }
@@ -610,15 +733,19 @@ function EditorCanvas({
           marqueeSession.startWorld,
           marqueeSession.currentWorld,
         )
-        const seatIdsInBounds = seats
+        const seatIdsInBounds = seatsRef.current
           .filter((seat) => isSeatInsideBounds(seat, selectionBounds))
           .map((seat) => seat.id)
 
-        const textIdsInBounds = texts
-          .filter((text) => isSeatInsideBounds(text, selectionBounds))
-          .map((text) => text.id)
+        const textIdsInBounds = textsRef.current
+          .filter((textItem) => isSeatInsideBounds(textItem, selectionBounds))
+          .map((textItem) => textItem.id)
 
-        onMarqueeSelect(seatIdsInBounds, textIdsInBounds)
+        onMarqueeSelectRef.current(
+          seatIdsInBounds,
+          textIdsInBounds,
+          marqueeSession.isShiftPressed,
+        )
       }
 
       stopMarqueeSelection()
@@ -632,16 +759,11 @@ function EditorCanvas({
 
     stopPanning()
   }, [
-    onArcCommit,
-    onMarqueeSelect,
-    onRowCommit,
-    seats,
-    texts,
     stopArcBuilder,
     stopMarqueeSelection,
     stopPanning,
     stopRowBuilder,
-    stopElementDrag,
+    stopSeatDrag,
   ])
 
   const handleStageMouseLeave = useCallback(() => {
@@ -651,14 +773,16 @@ function EditorCanvas({
     }
   }, [activeTool])
 
+  // ── Global window listeners (handle mouse leaving the canvas) ─────────────
+
   useEffect(() => {
     function hasActiveInteraction() {
       return Boolean(
-        dragSessionRef.current ||
-          arcSessionRef.current ||
-          rowSessionRef.current ||
-          marqueeSessionRef.current ||
-          panSessionRef.current,
+        seatDragSessionRef.current ||
+        arcSessionRef.current ||
+        rowSessionRef.current ||
+        marqueeSessionRef.current ||
+        panSessionRef.current,
       )
     }
 
@@ -703,8 +827,8 @@ function EditorCanvas({
     }
 
     function handleWindowBlur() {
-      if (dragSessionRef.current) {
-        stopElementDrag()
+      if (seatDragSessionRef.current) {
+        stopSeatDrag()
       }
 
       if (arcSessionRef.current) {
@@ -740,8 +864,10 @@ function EditorCanvas({
     stopMarqueeSelection,
     stopPanning,
     stopRowBuilder,
-    stopElementDrag,
+    stopSeatDrag,
   ])
+
+  // ── Click handlers ────────────────────────────────────────────────────────
 
   const handleStageClick = useCallback(
     (event) => {
@@ -760,18 +886,13 @@ function EditorCanvas({
         return
       }
 
-      if (activeTool === TOOL_SEAT || activeTool === TOOL_TEXT) {
-        onWorldClick(snapPoint(worldPoint))
-        return
-      }
-
       onWorldClick(worldPoint)
     },
-    [activeTool, getWorldPointFromStage, onWorldClick],
+    [getWorldPointFromStage, onWorldClick],
   )
 
-  const handleElementClick = useCallback(
-    (event, type, id) => {
+  const handleSeatClick = useCallback(
+    (event, seatId) => {
       event.cancelBubble = true
 
       if (suppressNextClickRef.current) {
@@ -780,29 +901,68 @@ function EditorCanvas({
       }
 
       if (activeTool === TOOL_SELECT) {
-        if (type === 'seat') onSeatSelect(id, Boolean(event.evt.shiftKey))
-        if (type === 'text') onTextSelect(id, Boolean(event.evt.shiftKey))
+        onSeatSelect(seatId, Boolean(event.evt.shiftKey))
         return
       }
 
       if (activeTool === TOOL_ERASER) {
-        if (type === 'seat') { setHoveredSeatId(null); onSeatErase(id) }
-        if (type === 'text') { setHoveredTextId(null); onTextErase(id) }
+        setHoveredSeatId(null)
+        onSeatErase(seatId)
       }
     },
-    [activeTool, onSeatSelect, onTextSelect, onSeatErase, onTextErase],
+    [activeTool, onSeatErase, onSeatSelect],
   )
 
-  const handleElementMouseDown = useCallback(
-    (event, type, id) => {
+  const handleTextClick = useCallback(
+    (event, textId) => {
       event.cancelBubble = true
 
-      if (activeTool === TOOL_ERASER || activeTool !== TOOL_SELECT) {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false
         return
       }
 
-      const isSelected = type === 'seat' ? selectedSeatIdSet.has(id) : selectedTextIdSet.has(id)
-      if (event.evt.button !== 0 || !isSelected) return
+      if (activeTool === TOOL_SELECT) {
+        onTextSelect(textId, Boolean(event.evt.shiftKey))
+        return
+      }
+
+      if (activeTool === TOOL_ERASER) {
+        setHoveredTextId(null)
+        onTextErase(textId)
+      }
+    },
+    [activeTool, onTextErase, onTextSelect],
+  )
+
+  const handleSeatDoubleClick = useCallback(
+    (event, seatId) => {
+      event.cancelBubble = true
+
+      if (activeTool !== TOOL_SELECT) {
+        return
+      }
+
+      onSmartRowSelect(seatId, event)
+    },
+    [activeTool, onSmartRowSelect],
+  )
+
+  const handleSeatMouseDown = useCallback(
+    (event, seat) => {
+      event.cancelBubble = true
+
+      if (activeTool === TOOL_ERASER) {
+        return
+      }
+
+      if (activeTool !== TOOL_SELECT) {
+        return
+      }
+
+      if (event.evt.button !== 0 || !selectedSeatIdSet.has(seat.id)) {
+        return
+      }
 
       const worldPoint = getWorldPointFromStage()
       if (!worldPoint) {
@@ -819,20 +979,17 @@ function EditorCanvas({
 
       const baseTextPositionsById = new Map()
       selectedTextIds.forEach((textId) => {
-      const selectedText = textsById.get(textId)
-      if (selectedText) {
-        baseTextPositionsById.set(textId, { x: selectedText.x, y: selectedText.y })
-      }
-    })
+        const selectedText = textsById.get(textId)
+        if (selectedText) {
+          baseTextPositionsById.set(textId, { x: selectedText.x, y: selectedText.y })
+        }
+      })
 
-     if (
-        baseSeatPositionsById.size === 0 &&
-        baseTextPositionsById.size === 0
-      ) {
-      return
+      if (baseSeatPositionsById.size === 0 && baseTextPositionsById.size === 0) {
+        return
       }
 
-      dragSessionRef.current = {
+      seatDragSessionRef.current = {
         startClientX: event.evt.clientX,
         startClientY: event.evt.clientY,
         startWorld: worldPoint,
@@ -841,17 +998,79 @@ function EditorCanvas({
         hasMoved: false,
       }
 
-      setIsDraggingElement(true)
+      setIsDraggingSeat(true)
     },
     [
       activeTool,
       getWorldPointFromStage,
       seatsById,
-      textsById,
+      selectedTextIds,
       selectedSeatIdSet,
-      selectedTextIdSet,
       selectedSeatIds,
-      selectedTextIds
+      textsById,
+    ],
+  )
+
+  const handleTextMouseDown = useCallback(
+    (event, textItem) => {
+      event.cancelBubble = true
+
+      if (activeTool === TOOL_ERASER) {
+        return
+      }
+
+      if (activeTool !== TOOL_SELECT) {
+        return
+      }
+
+      if (event.evt.button !== 0 || !selectedTextIdSet.has(textItem.id)) {
+        return
+      }
+
+      const worldPoint = getWorldPointFromStage()
+      if (!worldPoint) {
+        return
+      }
+
+      const baseSeatPositionsById = new Map()
+      selectedSeatIds.forEach((seatId) => {
+        const selectedSeat = seatsById.get(seatId)
+        if (selectedSeat) {
+          baseSeatPositionsById.set(seatId, { x: selectedSeat.x, y: selectedSeat.y })
+        }
+      })
+
+      const baseTextPositionsById = new Map()
+      selectedTextIds.forEach((textId) => {
+        const selectedText = textsById.get(textId)
+        if (selectedText) {
+          baseTextPositionsById.set(textId, { x: selectedText.x, y: selectedText.y })
+        }
+      })
+
+      if (baseSeatPositionsById.size === 0 && baseTextPositionsById.size === 0) {
+        return
+      }
+
+      seatDragSessionRef.current = {
+        startClientX: event.evt.clientX,
+        startClientY: event.evt.clientY,
+        startWorld: worldPoint,
+        baseSeatPositionsById,
+        baseTextPositionsById,
+        hasMoved: false,
+      }
+
+      setIsDraggingSeat(true)
+    },
+    [
+      activeTool,
+      getWorldPointFromStage,
+      seatsById,
+      selectedSeatIds,
+      selectedTextIdSet,
+      selectedTextIds,
+      textsById,
     ],
   )
 
@@ -874,36 +1093,109 @@ function EditorCanvas({
     setHoveredSeatId(null)
   }, [activeTool])
 
-  const visibleBounds = useMemo(() => {
-    const scale = Math.max(camera.scale, Number.EPSILON)
-    return {
-      x: -camera.position.x / scale,
-      y: -camera.position.y / scale,
-      width: viewport.width / scale,
-      height: viewport.height / scale,
-    }
-  }, [camera.position.x, camera.position.y, camera.scale, viewport.height, viewport.width])
+  const handleTextMouseEnter = useCallback(
+    (textId) => {
+      if (activeTool !== TOOL_ERASER) {
+        return
+      }
 
-  const gridBounds = useMemo(() => {
-    const paddingX = visibleBounds.width
-    const paddingY = visibleBounds.height
-
-    return {
-      x: visibleBounds.x - paddingX,
-      y: visibleBounds.y - paddingY,
-      width: visibleBounds.width + paddingX * 2,
-      height: visibleBounds.height + paddingY * 2,
-    }
-  }, [visibleBounds.height, visibleBounds.width, visibleBounds.x, visibleBounds.y])
-
-  const minorGridLines = useMemo(
-    () => buildGridLines(gridBounds, GRID_SIZE),
-    [gridBounds],
+      setHoveredTextId(textId)
+    },
+    [activeTool],
   )
-  const majorGridLines = useMemo(
-    () => buildGridLines(gridBounds, MAJOR_GRID_STEP),
-    [gridBounds],
-  )
+
+  const handleTextMouseLeave = useCallback(() => {
+    if (activeTool !== TOOL_ERASER) {
+      return
+    }
+
+    setHoveredTextId(null)
+  }, [activeTool])
+
+  // ── Render seats (memoized) ───────────────────────────────────────────────
+
+  const renderedSeats = useMemo(() => {
+    return seats.map((seat) => {
+      const isSelected = selectedSeatIdSet.has(seat.id)
+      const isEraseHovered = activeTool === TOOL_ERASER && seat.id === hoveredSeatId
+
+      return (
+        <Circle
+          key={seat.id}
+          x={seat.x}
+          y={seat.y}
+          radius={seat.radius}
+          fill={
+            isEraseHovered
+              ? 'rgba(232, 98, 110, 0.45)'
+              : isSelected
+                ? '#81b8ff'
+                : seat.fill
+          }
+          stroke={
+            isEraseHovered
+              ? '#ff7a87'
+              : isSelected
+                ? '#edf6ff'
+                : seat.stroke
+          }
+          strokeWidth={isEraseHovered || isSelected ? 3 : 2}
+          onClick={(event) => handleSeatClick(event, seat.id)}
+          onDblClick={(event) => handleSeatDoubleClick(event, seat.id)}
+          onMouseDown={(event) => handleSeatMouseDown(event, seat)}
+          onMouseEnter={() => handleSeatMouseEnter(seat.id)}
+          onMouseLeave={handleSeatMouseLeave}
+        />
+      )
+    })
+  }, [
+    seats,
+    selectedSeatIdSet,
+    activeTool,
+    hoveredSeatId,
+    handleSeatClick,
+    handleSeatDoubleClick,
+    handleSeatMouseDown,
+    handleSeatMouseEnter,
+    handleSeatMouseLeave,
+  ])
+
+  const renderedTexts = useMemo(() => {
+    return texts.map((textItem) => {
+      const isSelected = selectedTextIdSet.has(textItem.id)
+      const isEraseHovered = activeTool === TOOL_ERASER && textItem.id === hoveredTextId
+
+      return (
+        <Text
+          key={textItem.id}
+          x={textItem.x}
+          y={textItem.y}
+          text={textItem.content}
+          fill={isEraseHovered ? '#ff7a87' : isSelected ? '#81b8ff' : '#c9d6ea'}
+          fontSize={18}
+          fontFamily="system-ui, sans-serif"
+          align="center"
+          offsetX={textItem.content.length * 4.5}
+          offsetY={9}
+          onClick={(event) => handleTextClick(event, textItem.id)}
+          onMouseDown={(event) => handleTextMouseDown(event, textItem)}
+          onMouseEnter={() => handleTextMouseEnter(textItem.id)}
+          onMouseLeave={handleTextMouseLeave}
+        />
+      )
+    })
+  }, [
+    activeTool,
+    handleTextClick,
+    handleTextMouseDown,
+    handleTextMouseEnter,
+    handleTextMouseLeave,
+    hoveredTextId,
+    selectedTextIdSet,
+    texts,
+  ])
+
+  // ── Cursor ────────────────────────────────────────────────────────────────
 
   let idleCursor = 'default'
   if (
@@ -916,13 +1208,15 @@ function EditorCanvas({
     idleCursor = 'crosshair'
   }
 
-  const cursor = isPanning || isDraggingElement ? 'grabbing' : idleCursor
+  const cursor = isPanning || isDraggingSeat ? 'grabbing' : idleCursor
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <section
       ref={containerRef}
       className="h-full w-full"
-      style={{ background: EDITOR_BACKGROUND }}
+      style={{ background: '#ffffff' }}
     >
       <Stage
         ref={stageRef}
@@ -940,97 +1234,14 @@ function EditorCanvas({
         onClick={handleStageClick}
         style={{ cursor }}
       >
-        <Layer listening={false}>
-          <Rect
-            x={gridBounds.x}
-            y={gridBounds.y}
-            width={gridBounds.width}
-            height={gridBounds.height}
-            fill="#0d1218"
-          />
-          {minorGridLines.map((points, index) => (
-            <Line
-              key={`minor-grid-${index}`}
-              points={points}
-              stroke="rgba(193, 211, 236, 0.11)"
-              strokeWidth={1}
-              listening={false}
-            />
-          ))}
-          {majorGridLines.map((points, index) => (
-            <Line
-              key={`major-grid-${index}`}
-              points={points}
-              stroke="rgba(193, 211, 236, 0.19)"
-              strokeWidth={1.2}
-              listening={false}
-            />
-          ))}
-        </Layer>
-
         <Layer>
-          {seats.map((seat) => {
-            const isSelected = selectedSeatIdSet.has(seat.id)
-            const isEraseHovered = activeTool === TOOL_ERASER && seat.id === hoveredSeatId
-
-            return (
-              <Circle
-                key={seat.id}
-                x={seat.x}
-                y={seat.y}
-                radius={seat.radius}
-                fill={
-                  isEraseHovered
-                    ? 'rgba(232, 98, 110, 0.45)'
-                    : isSelected
-                      ? '#81b8ff'
-                      : seat.fill
-                }
-                stroke={
-                  isEraseHovered
-                    ? '#ff7a87'
-                    : isSelected
-                      ? '#edf6ff'
-                      : seat.stroke
-                }
-                strokeWidth={isEraseHovered || isSelected ? 3 : 2}
-                onClick={(event) => handleElementClick(event, 'seat', seat.id)}
-                onMouseDown={(event) => handleElementMouseDown(event, 'seat', seat.id)}
-                onMouseEnter={() => handleSeatMouseEnter(seat.id)}
-                onMouseLeave={handleSeatMouseLeave}
-              />
-            )
-          })}
-
-          {/* <-- Render Text Layer loop here */}
-          {texts.map((t) => {
-            const isSelected = selectedTextIdSet.has(t.id)
-            const isEraseHovered = activeTool === TOOL_ERASER && t.id === hoveredTextId
-
-            return (
-              <Text
-                key={t.id}
-                x={t.x}
-                y={t.y}
-                text={t.content}
-                fill={isEraseHovered ? '#ff7a87' : isSelected ? '#81b8ff' : '#c9d6ea'}
-                fontSize={18}
-                fontFamily="system-ui, sans-serif"
-                align="center"
-                offsetX={t.content.length * 4.5} 
-                offsetY={9}
-                onClick={(e) => handleElementClick(e, 'text', t.id)}
-                onMouseDown={(e) => handleElementMouseDown(e, 'text', t.id)}
-                onMouseEnter={() => activeTool === TOOL_ERASER && setHoveredTextId(t.id)}
-                onMouseLeave={() => activeTool === TOOL_ERASER && setHoveredTextId(null)}
-              />
-            )
-          })}
+          {renderedSeats}
+          {renderedTexts}
 
           {activeTool === TOOL_ROW &&
-            rowPreviewPoints.map((point) => (
+            rowPreviewPoints.map((point, index) => (
               <Circle
-                key={`row-preview-${point.x}-${point.y}`}
+                key={`row-preview-${index}`}
                 x={point.x}
                 y={point.y}
                 radius={PREVIEW_SEAT_RADIUS}
@@ -1042,9 +1253,9 @@ function EditorCanvas({
             ))}
 
           {activeTool === TOOL_ARC &&
-            arcPreviewPoints.map((point) => (
+            arcPreviewPoints.map((point, index) => (
               <Circle
-                key={`arc-preview-${point.x}-${point.y}`}
+                key={`arc-preview-${index}`}
                 x={point.x}
                 y={point.y}
                 radius={PREVIEW_SEAT_RADIUS}
