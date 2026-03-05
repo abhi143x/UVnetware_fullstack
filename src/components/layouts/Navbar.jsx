@@ -22,12 +22,12 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
-      <div className="w-full px-12 sm:px-24 py-10 sm:py-14 flex items-center gap-8">
+      <div className="w-full px-8 sm:px-12 py-4 sm:py-5 flex items-center gap-8">
         {/* SECTION 1: Company Name */}
 
         <div className="flex-shrink-0">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="text-5xl font-black bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-110 transition-transform duration-300">
+            <div className="text-3xl font-black bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
               UV<span className="text-white">netware</span>
             </div>
           </Link>
@@ -41,7 +41,7 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="px-6 py-2.5 text-white text-lg font-bold rounded-lg bg-gradient-to-r hover:from-blue-500 hover:to-blue-400 transition-all duration-300 shadow-lg hover:shadow-blue-500/50 flex items-center gap-2 group hover:translate-x-1"
+                  className="px-5 py-2 text-white text-base font-bold rounded-lg bg-gradient-to-r hover:from-blue-500 hover:to-blue-400 transition-all duration-300 shadow-lg hover:shadow-blue-500/50 flex items-center gap-2 group hover:translate-x-1"
                 >
                   {item.name}
                 </Link>
@@ -51,7 +51,7 @@ export default function Navbar() {
               <a
                 key={item.name}
                 href={item.href}
-                className="flex items-center gap-2 px-4 py-2 text-white text-lg font-medium rounded-lg transition-all duration-300 hover:bg-blue-500/10 hover:text-blue-400 group relative whitespace-nowrap"
+                className="flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 hover:bg-blue-500/10 hover:text-blue-400 group relative whitespace-nowrap"
               >
                 <span>{item.name}</span>
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 group-hover:w-full rounded-full"></span>
@@ -62,16 +62,16 @@ export default function Navbar() {
 
         {/* SECTION 3: Login/Signup */}
 
-        <div className="hidden md:flex flex-shrink-0 items-center gap-6">
+        <div className="hidden md:flex flex-shrink-0 items-center gap-4">
           <Link
             to="/login"
-            className="px-5 py-2.5 text-white text-lg font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300"
+            className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
           >
             Login
           </Link>
           <Link
             to="/signup"
-            className="px-5 py-2.5 text-white text-lg font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300"
+            className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
           >
             Signup
           </Link>

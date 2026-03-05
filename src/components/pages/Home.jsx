@@ -57,7 +57,7 @@ export default function Home() {
               <iframe
                 width="100%"
                 height="100%"
-                src=""
+                src={null}
                 title="UVnetware Demo"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -98,7 +98,7 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-4xl sm:text-5xl font-bold mb-40 text-blue-500">Features</h2>
             <p className="text-xl text-white-300  leading-relaxed">
-           Uvnetware enhances the seating visualization experience with powerful and intelligent tools.
+              Uvnetware enhances the seating visualization experience with powerful and intelligent tools.
             </p>
           </div>
 
@@ -109,16 +109,16 @@ export default function Home() {
                 Advanced Layout Editor
               </h3>
               <p className="text-gray-400 leading-relaxed">
-               From large-scale stadiums to compact spaces, our smart editor enables you to create seating layouts of any complexity with precision and control.
+                From large-scale stadiums to compact spaces, our smart editor enables you to create seating layouts of any complexity with precision and control.
               </p>
             </div>
 
             <div className="text-center md:text-left">
               <h3 className="text-2xl font-bold mb-4 text-blue-500">
-               Enterprise-Ready Platform
+                Enterprise-Ready Platform
               </h3>
               <p className="text-gray-400 leading-relaxed">
-               Deliver production-ready seating layouts seamlessly integrated with your booking platform or operational system.
+                Deliver production-ready seating layouts seamlessly integrated with your booking platform or operational system.
               </p>
             </div>
 
