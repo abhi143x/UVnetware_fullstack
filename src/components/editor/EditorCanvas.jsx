@@ -148,23 +148,30 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
 SeatSVG.displayName = 'SeatSVG'
 
 const TextSVG = React.memo(({ textItem, isSelected, isEraseHovered, onTextClick, onTextMouseDown, onTextMouseEnter, onTextMouseLeave }) => {
+  const scale = textItem.scale || 1
+  const fontSize = textItem.fontSize || 20
+
   return (
-    <text
-      x={textItem.x}
-      y={textItem.y}
-      fill={isEraseHovered ? '#ff7a87' : isSelected ? '#81b8ff' : '#c9d6ea'}
-      fontSize={18}
-      fontFamily="system-ui, sans-serif"
-      textAnchor="middle"
-      dominantBaseline="central"
-      onClick={(e) => onTextClick(e, textItem.id)}
-      onMouseDown={(e) => onTextMouseDown(e, textItem)}
-      onMouseEnter={() => onTextMouseEnter(textItem.id)}
-      onMouseLeave={onTextMouseLeave}
-      className={`select-none ${isEraseHovered || isSelected ? 'cursor-pointer' : ''}`}
-    >
-      {textItem.content}
-    </text>
+    <g transform={`translate(${textItem.x}, ${textItem.y}) scale(${scale})`}>
+      <text
+        x={0}
+        y={0}
+        fill={isEraseHovered ? '#ff7a87' : (textItem.fill || '#c9d6ea')}
+        fontSize={fontSize}
+        fontWeight={textItem.fontWeight || 'normal'}
+        fontStyle={textItem.fontStyle || 'normal'}
+        fontFamily="system-ui, sans-serif"
+        textAnchor="middle"
+        dominantBaseline="central"
+        onClick={(e) => onTextClick(e, textItem.id)}
+        onMouseDown={(e) => onTextMouseDown(e, textItem)}
+        onMouseEnter={() => onTextMouseEnter(textItem.id)}
+        onMouseLeave={onTextMouseLeave}
+        className={`select-none ${isEraseHovered || isSelected ? 'cursor-pointer' : ''}`}
+      >
+        {textItem.content}
+      </text>
+    </g>
   )
 })
 TextSVG.displayName = 'TextSVG'
@@ -1130,12 +1137,13 @@ function EditorCanvas() {
   // ── Cursor ────────────────────────────────────────────────────────────────
 
   let idleCursor = 'default'
-  if (
+  if (activeTool === TOOL_TEXT) {
+    idleCursor = 'text' 
+  } else if (
     activeTool === TOOL_SEAT ||
     activeTool === TOOL_ROW ||
     activeTool === TOOL_ARC ||
-    activeTool === TOOL_ERASER ||
-    activeTool === TOOL_TEXT
+    activeTool === TOOL_ERASER
   ) {
     idleCursor = 'crosshair'
   }
@@ -1147,7 +1155,7 @@ function EditorCanvas() {
   return (
     <section
       ref={containerRef}
-      className={`h-full w-full bg-white select-none ${cursor === 'grabbing' ? 'cursor-grabbing' : cursor === 'crosshair' ? 'cursor-crosshair' : 'cursor-default'}`}
+      className={`h-full w-full bg-[#0e1319] select-none ${cursor === 'grabbing' ? 'cursor-grabbing' : cursor === 'crosshair' ? 'cursor-crosshair' : cursor === 'text' ? 'cursor-text' : 'cursor-default'}`}
       onMouseDown={handleStageMouseDown}
       onMouseMove={handleStageMouseMove}
       onMouseUp={handleStageMouseUp}

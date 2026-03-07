@@ -174,23 +174,48 @@ export const useEditorStore = create((set, get) => ({
     texts: [],
     selectedSeatIds: [],
     selectedTextIds: [],
-    textPrompt: null,
-    textDraft: '',
-
+    
     // Actions
-    setActiveTool: (tool) => set({ activeTool: tool }),
-    setTextDraft: (draft) => set({ textDraft: draft }),
-    setTextPrompt: (prompt) => set({ textPrompt: prompt }),
+    setActiveTool: (tool) => set((state) => {
+      if (state.activeTool !== tool) {
+      return { 
+        activeTool: tool, 
+        selectedSeatIds: [], 
+        selectedTextIds: [] 
+      }
+    }
+    return state
+  }),
 
+    updateText: (textId, updates) => set((state) => ({
+    texts: state.texts.map(t => t.id === textId ? { ...t, ...updates } : t)
+    })),
+    
     clearSelection: () => set({ selectedSeatIds: [], selectedTextIds: [] }),
 
     handleWorldClick: (worldPoint) => set((state) => {
         if (state.activeTool === TOOL_SELECT) {
             return { selectedSeatIds: [], selectedTextIds: [] }
         }
+
         if (state.activeTool === TOOL_TEXT) {
-            return { textPrompt: { x: worldPoint.x, y: worldPoint.y }, textDraft: '' }
-        }
+            const newTextId = createId('text')
+            return {
+                texts: [...state.texts, {
+                    id: newTextId,
+                    x: worldPoint.x,
+                    y: worldPoint.y,
+                    content: 'Text',
+                    fontSize: 20,
+                    fill: '#c9d6ea', 
+                    fontWeight: 'normal',
+                    fontStyle: 'normal',
+                    scale: 1
+                    }],
+                    selectedTextIds: [newTextId],
+                    selectedSeatIds: []
+                    }
+                }
         if (state.activeTool === TOOL_SEAT) {
             if (isOverlapping(worldPoint.x, worldPoint.y, state.seats)) return state
             return { seats: [...state.seats, createSeat(worldPoint)] }
