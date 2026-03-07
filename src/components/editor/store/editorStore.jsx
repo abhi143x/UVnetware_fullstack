@@ -1,6 +1,22 @@
 import { create } from 'zustand'
 import { TOOL_SEAT, TOOL_SELECT, TOOL_ERASER, TOOL_ROW, TOOL_ARC, TOOL_TEXT } from '../constants/tools'
 
+const STORAGE_KEY = 'uvnetware-layout'
+
+function loadFromStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return { seats: [], texts: [] }
+        const parsed = JSON.parse(raw)
+        return {
+            seats: Array.isArray(parsed.seats) ? parsed.seats : [],
+            texts: Array.isArray(parsed.texts) ? parsed.texts : [],
+        }
+    } catch {
+        return { seats: [], texts: [] }
+    }
+}
+
 const DEFAULT_SEAT_RADIUS = 12
 const DEFAULT_SEAT_FILL = '#5fa7ff'
 const DEFAULT_SEAT_STROKE = '#cfe4ff'
@@ -141,13 +157,19 @@ function appendNonOverlappingSeats(currentSeats, candidatePoints) {
 
 // ─── Zustand Store ────────────────────────────────────────────────────────────
 
-export const useEditorStore = create((set, get) => ({
+export const useEditorStore = create((set, get) => {
+    const persisted = loadFromStorage()
+
+    return {
     // State
     activeTool: TOOL_SEAT,
-    seats: [],
-    texts: [],
+    seats: persisted.seats,
+    texts: persisted.texts,
     selectedSeatIds: [],
     selectedTextIds: [],
+    textPrompt: null,
+    textDraft: '',
+    lastSavedAt: persisted.seats.length > 0 || persisted.texts.length > 0 ? Date.now() : null,
 
     // Actions
     setActiveTool: (tool) => set((state) => {
@@ -400,5 +422,36 @@ export const useEditorStore = create((set, get) => ({
     commitArc: (arcPoints) => set((state) => {
         if (state.activeTool !== TOOL_ARC || arcPoints.length === 0) return state
         return { seats: appendNonOverlappingSeats(state.seats, arcPoints) }
-    })
-}))
+    }),
+
+    // ─── Persistence Actions ──────────────────────────────────────────────────
+
+    saveLayout: () => {
+        const { seats, texts } = get()
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ seats, texts }))
+            set({ lastSavedAt: Date.now() })
+            return true
+        } catch {
+            return false
+        }
+    },
+
+    exportJSON: () => {
+        const { seats, texts } = get()
+        const data = JSON.stringify({ seats, texts }, null, 2)
+        const blob = new Blob([data], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = 'layout.json'
+        anchor.click()
+        URL.revokeObjectURL(url)
+    },
+
+    clearLayout: () => {
+        localStorage.removeItem(STORAGE_KEY)
+        set({ seats: [], texts: [], selectedSeatIds: [], selectedTextIds: [], lastSavedAt: null })
+    },
+    }
+})
