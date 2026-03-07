@@ -1,7 +1,7 @@
 import EditorCanvas from './EditorCanvas'
 import Toolbar from './Toolbar'
 import PropertiesPanel from './PropertiesPanel'
-import { useEditorStore } from './useEditorStore'
+import { useEditorStore } from './store/editorStore'
 
 
 function Editor() {

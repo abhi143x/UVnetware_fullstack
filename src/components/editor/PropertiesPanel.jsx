@@ -1,6 +1,5 @@
-import React from 'react'
-import { useEditorStore } from './useEditorStore'
-import { TOOL_SELECT } from './editorConstants'
+import { useEditorStore } from './store/editorStore'
+import { TOOL_SELECT } from './constants/tools'
 
 function PropertiesPanel() {
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds)

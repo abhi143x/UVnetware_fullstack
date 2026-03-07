@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { TOOL_SEAT, TOOL_SELECT, TOOL_ERASER, TOOL_ROW, TOOL_ARC, TOOL_TEXT } from './editorConstants'
+import { TOOL_SEAT, TOOL_SELECT, TOOL_ERASER, TOOL_ROW, TOOL_ARC, TOOL_TEXT } from '../constants/tools'
 
 const DEFAULT_SEAT_RADIUS = 12
 const DEFAULT_SEAT_FILL = '#5fa7ff'
@@ -34,33 +34,7 @@ function isOverlapping(x, y, seats, newRadius = DEFAULT_SEAT_RADIUS) {
     return false
 }
 
-function buildLineRangeSeatIds(anchorSeat, targetSeat, seats) {
-    const dx1 = targetSeat.x - anchorSeat.x
-    const dy1 = targetSeat.y - anchorSeat.y
-    const lengthSquared = dx1 * dx1 + dy1 * dy1
-
-    if (lengthSquared === 0) return [anchorSeat.id]
-
-    const lineLength = Math.sqrt(lengthSquared)
-    const selectedIds = []
-
-    for (const seat of seats) {
-        const dx2 = seat.x - anchorSeat.x
-        const dy2 = seat.y - anchorSeat.y
-        const area = Math.abs(dx1 * dy2 - dx2 * dy1)
-        const distance = area / lineLength
-        const tolerance = seat.radius ?? DEFAULT_SEAT_RADIUS
-
-        if (distance > tolerance) continue
-
-        const dot = dx2 * dx1 + dy2 * dy1
-        if (dot < 0 || dot > lengthSquared) continue
-
-        selectedIds.push(seat.id)
-    }
-
-    return selectedIds
-}
+// The buildLineRangeSeatIds feature was removed to allow standard Shift-Click multi-selection.
 
 function getCollisionCellKey(cellX, cellY) {
     return `${cellX}:${cellY}`
@@ -174,23 +148,21 @@ export const useEditorStore = create((set, get) => ({
     texts: [],
     selectedSeatIds: [],
     selectedTextIds: [],
-    
+
     // Actions
     setActiveTool: (tool) => set((state) => {
-      if (state.activeTool !== tool) {
-      return { 
-        activeTool: tool, 
-        selectedSeatIds: [], 
-        selectedTextIds: [] 
-      }
-    }
-    return state
-  }),
+        if (state.activeTool !== tool) {
+            return {
+                activeTool: tool
+            }
+        }
+        return state
+    }),
 
     updateText: (textId, updates) => set((state) => ({
-    texts: state.texts.map(t => t.id === textId ? { ...t, ...updates } : t)
+        texts: state.texts.map(t => t.id === textId ? { ...t, ...updates } : t)
     })),
-    
+
     clearSelection: () => set({ selectedSeatIds: [], selectedTextIds: [] }),
 
     handleWorldClick: (worldPoint) => set((state) => {
@@ -207,15 +179,15 @@ export const useEditorStore = create((set, get) => ({
                     y: worldPoint.y,
                     content: 'Text',
                     fontSize: 20,
-                    fill: '#c9d6ea', 
+                    fill: '#c9d6ea',
                     fontWeight: 'normal',
                     fontStyle: 'normal',
                     scale: 1
-                    }],
-                    selectedTextIds: [newTextId],
-                    selectedSeatIds: []
-                    }
-                }
+                }],
+                selectedTextIds: [newTextId],
+                selectedSeatIds: []
+            }
+        }
         if (state.activeTool === TOOL_SEAT) {
             if (isOverlapping(worldPoint.x, worldPoint.y, state.seats)) return state
             return { seats: [...state.seats, createSeat(worldPoint)] }
@@ -240,21 +212,10 @@ export const useEditorStore = create((set, get) => ({
         return { textDraft: '', textPrompt: null }
     }),
 
-    selectSeat: (seatId, shiftKey) => set((state) => {
+    selectSeat: (seatId, isMulti) => set((state) => {
         if (state.activeTool !== TOOL_SELECT) return state
 
-        if (!shiftKey) return { selectedSeatIds: [seatId] }
-
-        if (state.selectedSeatIds.length === 1) {
-            const anchorSeatId = state.selectedSeatIds[0]
-            const seatById = new Map(state.seats.map(s => [s.id, s]))
-            const anchorSeat = seatById.get(anchorSeatId)
-            const targetSeat = seatById.get(seatId)
-
-            if (anchorSeat && targetSeat) {
-                return { selectedSeatIds: buildLineRangeSeatIds(anchorSeat, targetSeat, state.seats) }
-            }
-        }
+        if (!isMulti) return { selectedSeatIds: [seatId] }
 
         if (state.selectedSeatIds.includes(seatId)) {
             return { selectedSeatIds: state.selectedSeatIds.filter(id => id !== seatId) }
@@ -372,6 +333,9 @@ export const useEditorStore = create((set, get) => ({
             if (isOverlappingWithCollisionIndex(
                 update.x, update.y, seatRadius, collisionIndex, COLLISION_INDEX_CELL_SIZE, maxSeatRadius
             )) {
+                // Skip updating this seat's position, it hit something
+                acceptedMovedSeats.set(update.id, currentSeat)
+                addSeatToCollisionIndex(collisionIndex, currentSeat, COLLISION_INDEX_CELL_SIZE)
                 continue
             }
 

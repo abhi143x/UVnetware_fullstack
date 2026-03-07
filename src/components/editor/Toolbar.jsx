@@ -5,7 +5,7 @@ import {
   TOOL_SEAT,
   TOOL_SELECT,
   TOOL_TEXT,
-} from './editorConstants'
+} from './constants/tools'
 
 const TOOLBAR_CLASSNAME =
   'h-screen w-[72px] shrink-0 flex flex-col items-center gap-3 border-r border-white/5 bg-[#11161c] pt-4'
