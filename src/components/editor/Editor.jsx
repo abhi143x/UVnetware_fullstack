@@ -10,6 +10,7 @@ function Editor() {
 
   const activeTool = useEditorStore((state) => state.activeTool)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
+  const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds)
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds)
   const seatCount = useEditorStore((state) => state.seats.length)
   const saveLayout = useEditorStore((state) => state.saveLayout)
@@ -72,7 +73,7 @@ function Editor() {
         </div>
       </div>
 
-    {selectedTextIds.length > 0 && (
+    {(selectedSeatIds.length > 0 || selectedTextIds.length > 0) && (
         <PropertiesPanel />
       )}
 

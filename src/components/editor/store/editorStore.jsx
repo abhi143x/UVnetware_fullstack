@@ -1,19 +1,28 @@
 import { create } from 'zustand'
 import { TOOL_SEAT, TOOL_SELECT, TOOL_ERASER, TOOL_ROW, TOOL_ARC, TOOL_TEXT } from '../constants/tools'
+import { getRowLetter, generateSeatLabel, assignRowNumbers } from '../utils/seatNumbering'
 
 const STORAGE_KEY = 'uvnetware-layout'
+
+const DEFAULT_CATEGORIES = [
+    { id: 'vip', name: 'VIP', color: '#ffd700', price: null },
+    { id: 'standard', name: 'Standard', color: '#5fa7ff', price: null },
+    { id: 'balcony', name: 'Balcony', color: '#9b59b6', price: null },
+]
 
 function loadFromStorage() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY)
-        if (!raw) return { seats: [], texts: [] }
+        if (!raw) return { seats: [], texts: [], categories: [], nextRowIndex: 0 }
         const parsed = JSON.parse(raw)
         return {
             seats: Array.isArray(parsed.seats) ? parsed.seats : [],
             texts: Array.isArray(parsed.texts) ? parsed.texts : [],
+            categories: Array.isArray(parsed.categories) ? parsed.categories : [],
+            nextRowIndex: typeof parsed.nextRowIndex === 'number' ? parsed.nextRowIndex : 0,
         }
     } catch {
-        return { seats: [], texts: [] }
+        return { seats: [], texts: [], categories: [], nextRowIndex: 0 }
     }
 }
 
@@ -116,18 +125,26 @@ function getMaxSeatRadius(seats) {
     )
 }
 
-function createSeat(point) {
+function createSeat(point, options = {}) {
     return {
         id: createId('seat'),
         x: point.x,
         y: point.y,
-        radius: DEFAULT_SEAT_RADIUS,
+        radius: DEFAULT_SEAT_RADIUS, // Keep for backward compatibility (half of square size)
+        size: options.size || (DEFAULT_SEAT_RADIUS * 2), // Square size (width/height)
         fill: DEFAULT_SEAT_FILL,
         stroke: DEFAULT_SEAT_STROKE,
+        // Seat management properties
+        row: options.row || null,
+        number: options.number || null,
+        label: options.label || null,
+        category: options.category || null,
+        status: options.status || 'available', // available, reserved, sold, locked
+        price: options.price || null,
     }
 }
 
-function appendNonOverlappingSeats(currentSeats, candidatePoints) {
+function appendNonOverlappingSeats(currentSeats, candidatePoints, seatOptions = {}) {
     if (candidatePoints.length === 0) return currentSeats
 
     const nextSeats = [...currentSeats]
@@ -135,7 +152,7 @@ function appendNonOverlappingSeats(currentSeats, candidatePoints) {
     let maxSeatRadius = getMaxSeatRadius(nextSeats)
     let addedSeatCount = 0
 
-    candidatePoints.forEach((point) => {
+    candidatePoints.forEach((point, index) => {
         if (
             isOverlappingWithCollisionIndex(
                 point.x, point.y, DEFAULT_SEAT_RADIUS, collisionIndex, COLLISION_INDEX_CELL_SIZE, maxSeatRadius
@@ -144,7 +161,18 @@ function appendNonOverlappingSeats(currentSeats, candidatePoints) {
             return
         }
 
-        const newSeat = createSeat(point)
+        // Merge point-specific options with general options
+        const pointOptions = {
+            ...seatOptions,
+            ...(point.options || {}),
+        }
+        
+        // If row and number are provided, generate label
+        if (pointOptions.row && pointOptions.number) {
+            pointOptions.label = generateSeatLabel(pointOptions.row, pointOptions.number)
+        }
+
+        const newSeat = createSeat(point, pointOptions)
         nextSeats.push(newSeat)
         addSeatToCollisionIndex(collisionIndex, newSeat, COLLISION_INDEX_CELL_SIZE)
         maxSeatRadius = Math.max(maxSeatRadius, newSeat.radius ?? DEFAULT_SEAT_RADIUS)
@@ -170,6 +198,12 @@ export const useEditorStore = create((set, get) => {
     textPrompt: null,
     textDraft: '',
     lastSavedAt: persisted.seats.length > 0 || persisted.texts.length > 0 ? Date.now() : null,
+    
+    // Seat management state
+    categories: Array.isArray(persisted.categories) && persisted.categories.length > 0
+        ? persisted.categories
+        : DEFAULT_CATEGORIES,
+    nextRowIndex: persisted.nextRowIndex || 0, // Tracks the next row letter to assign
 
     // Actions
     setActiveTool: (tool) => set((state) => {
@@ -184,6 +218,74 @@ export const useEditorStore = create((set, get) => {
     updateText: (textId, updates) => set((state) => ({
         texts: state.texts.map(t => t.id === textId ? { ...t, ...updates } : t)
     })),
+
+    updateSeat: (seatId, updates) => set((state) => ({
+        seats: state.seats.map(s => {
+            if (s.id === seatId) {
+                const updated = { ...s, ...updates }
+                // Auto-generate label if row and number are set
+                if (updated.row && updated.number && !updates.label) {
+                    updated.label = generateSeatLabel(updated.row, updated.number)
+                }
+                return updated
+            }
+            return s
+        })
+    })),
+
+    updateSeats: (seatIds, updates) => set((state) => ({
+        seats: state.seats.map(s => {
+            if (seatIds.includes(s.id)) {
+                const updated = { ...s, ...updates }
+                // Auto-generate label if row and number are set
+                if (updated.row && updated.number && !updates.label) {
+                    updated.label = generateSeatLabel(updated.row, updated.number)
+                }
+                return updated
+            }
+            return s
+        })
+    })),
+
+    // Category management
+    addCategory: (category) => set((state) => ({
+        categories: [...state.categories, { ...category, id: category.id || createId('category') }]
+    })),
+
+    updateCategory: (categoryId, updates) => set((state) => ({
+        categories: state.categories.map(c => c.id === categoryId ? { ...c, ...updates } : c)
+    })),
+
+    removeCategory: (categoryId) => set((state) => ({
+        categories: state.categories.filter(c => c.id !== categoryId),
+        seats: state.seats.map(s => s.category === categoryId ? { ...s, category: null } : s)
+    })),
+
+    // Auto-number all seats
+    autoNumberSeats: () => set((state) => {
+        const updatedSeats = assignRowNumbers(state.seats, 0)
+        // Find the highest row index used
+        let maxRowIndex = -1
+        updatedSeats.forEach(seat => {
+            if (seat.row) {
+                // Convert row letter back to index
+                const rowChar = seat.row[0]
+                const rowIndex = rowChar.charCodeAt(0) - 65
+                if (seat.row.length > 1) {
+                    // Handle AA, AB, etc.
+                    const secondChar = seat.row[1]
+                    const secondIndex = secondChar.charCodeAt(0) - 65
+                    maxRowIndex = Math.max(maxRowIndex, 26 + (rowIndex * 26) + secondIndex)
+                } else {
+                    maxRowIndex = Math.max(maxRowIndex, rowIndex)
+                }
+            }
+        })
+        return {
+            seats: updatedSeats,
+            nextRowIndex: maxRowIndex + 1
+        }
+    }),
 
     clearSelection: () => set({ selectedSeatIds: [], selectedTextIds: [] }),
 
@@ -449,20 +551,54 @@ export const useEditorStore = create((set, get) => {
 
     commitRow: (rowPoints) => set((state) => {
         if (state.activeTool !== TOOL_ROW || rowPoints.length === 0) return state
-        return { seats: appendNonOverlappingSeats(state.seats, rowPoints) }
+        
+        const currentRowIndex = state.nextRowIndex
+        const rowLetter = getRowLetter(currentRowIndex)
+        
+        // Create seat options for each point in the row
+        const seatsWithOptions = rowPoints.map((point, index) => ({
+            ...point,
+            options: {
+                row: rowLetter,
+                number: index + 1,
+                label: generateSeatLabel(rowLetter, index + 1),
+            }
+        }))
+        
+        return {
+            seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),
+            nextRowIndex: currentRowIndex + 1, // Increment for next row
+        }
     }),
 
     commitArc: (arcPoints) => set((state) => {
         if (state.activeTool !== TOOL_ARC || arcPoints.length === 0) return state
-        return { seats: appendNonOverlappingSeats(state.seats, arcPoints) }
+        
+        const currentRowIndex = state.nextRowIndex
+        const rowLetter = getRowLetter(currentRowIndex)
+        
+        // Create seat options for each point in the arc
+        const seatsWithOptions = arcPoints.map((point, index) => ({
+            ...point,
+            options: {
+                row: rowLetter,
+                number: index + 1,
+                label: generateSeatLabel(rowLetter, index + 1),
+            }
+        }))
+        
+        return {
+            seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),
+            nextRowIndex: currentRowIndex + 1, // Increment for next row
+        }
     }),
 
     // ─── Persistence Actions ──────────────────────────────────────────────────
 
     saveLayout: () => {
-        const { seats, texts } = get()
+        const { seats, texts, categories, nextRowIndex } = get()
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ seats, texts }))
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ seats, texts, categories, nextRowIndex }))
             set({ lastSavedAt: Date.now() })
             return true
         } catch {
@@ -471,8 +607,8 @@ export const useEditorStore = create((set, get) => {
     },
 
     exportJSON: () => {
-        const { seats, texts } = get()
-        const data = JSON.stringify({ seats, texts }, null, 2)
+        const { seats, texts, categories, nextRowIndex } = get()
+        const data = JSON.stringify({ seats, texts, categories, nextRowIndex }, null, 2)
         const blob = new Blob([data], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
         const anchor = document.createElement('a')
@@ -484,7 +620,14 @@ export const useEditorStore = create((set, get) => {
 
     clearLayout: () => {
         localStorage.removeItem(STORAGE_KEY)
-        set({ seats: [], texts: [], selectedSeatIds: [], selectedTextIds: [], lastSavedAt: null })
+        set({
+            seats: [],
+            texts: [],
+            selectedSeatIds: [],
+            selectedTextIds: [],
+            lastSavedAt: null,
+            nextRowIndex: 0,
+        })
     },
     }
 })

@@ -7,24 +7,34 @@ export class RotateTool {
   handleMouseDown(event, worldPoint, context) {
 
     return {
-      type: "rotate_start",
-      startPoint: worldPoint
+      type: 'rotate_start',
+      startPoint: worldPoint,
+      lastAngle: 0,
     }
 
   }
 
   handleMouseMove(event, worldPoint, context, session) {
 
-    if (!session || session.type !== "rotate_start") return session
+    if (!session || session.type !== 'rotate_start') return session
 
     const dx = worldPoint.x - session.startPoint.x
     const dy = worldPoint.y - session.startPoint.y
 
-    const angle = Math.atan2(dy, dx)
+    // Current drag angle relative to the start point
+    const currentAngle = Math.atan2(dy, dx)
 
-     this.storeActions.rotateSelection(angle * 0.05)
+    // Rotate by the delta from the previous angle so rotation is smooth
+    const delta = currentAngle - (session.lastAngle ?? 0)
 
-    return session
+    if (Number.isFinite(delta) && delta !== 0) {
+      this.storeActions.rotateSelection(delta)
+    }
+
+    return {
+      ...session,
+      lastAngle: currentAngle,
+    }
   }
 
   handleMouseUp(event, worldPoint, context, session) {

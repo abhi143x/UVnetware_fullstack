@@ -48,8 +48,8 @@ export class ArcTool {
       return {
         type: 'arc_drawing',
         centerPoint,
-        startAngle,
         radius,
+        startAngle,
         totalSweep,
         rotation,
         previewPoints: points,
