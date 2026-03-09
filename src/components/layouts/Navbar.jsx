@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FiMenu, FiX } from "react-icons/fi";
 
 export default function Navbar() {
@@ -11,6 +11,7 @@ export default function Navbar() {
   const [draftName, setDraftName] = useState("");
   const [draftPhoto, setDraftPhoto] = useState("");
   const profileMenuRef = useRef(null);
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -150,6 +151,16 @@ export default function Navbar() {
     { name: "Features", href: "/features", isButton: true },
   ];
 
+  const isActiveRoute = (href) => {
+    if (href === "/") {
+      return location.pathname === "/";
+    }
+
+    return (
+      location.pathname === href || location.pathname.startsWith(`${href}/`)
+    );
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
       <div className="w-full px-8 sm:px-12 py-2.5 sm:py-3 flex items-center gap-8">
@@ -166,25 +177,40 @@ export default function Navbar() {
         {/* SECTION 2: NAVIGATION (Center) */}
         <div className="hidden md:flex flex-1 justify-center items-center gap-8">
           {navItems.map((item) => {
+            const isActive = isActiveRoute(item.href);
+
             if (item.isButton) {
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="px-5 py-2 text-white text-base font-bold rounded-lg bg-gradient-to-r hover:from-blue-500 hover:to-blue-400 transition-all duration-300 shadow-lg hover:shadow-blue-500/50 flex items-center gap-2 group hover:translate-x-1"
+                  className={`px-5 py-2 text-white text-base font-bold rounded-lg transition-all duration-300 shadow-lg flex items-center gap-2 group ${
+                    isActive
+                      ? "bg-blue-600 shadow-blue-500/60"
+                      : "bg-gradient-to-r hover:from-blue-500 hover:to-blue-400 hover:shadow-blue-500/50 hover:translate-x-1"
+                  }`}
                 >
                   {item.name}
                 </Link>
               );
             }
+
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className="flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 hover:bg-blue-500/10 hover:text-blue-400 group relative whitespace-nowrap"
+                className={`flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 group relative whitespace-nowrap ${
+                  isActive
+                    ? "bg-blue-500/20 text-blue-300"
+                    : "hover:bg-blue-500/10 hover:text-blue-400"
+                }`}
               >
                 <span>{item.name}</span>
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 group-hover:w-full rounded-full"></span>
+                <span
+                  className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 rounded-full ${
+                    isActive ? "w-full" : "w-0 group-hover:w-full"
+                  }`}
+                ></span>
               </Link>
             );
           })}
@@ -399,24 +425,33 @@ export default function Navbar() {
         <div className="md:hidden bg-black/95 border-t border-blue-500/20 backdrop-blur-lg">
           <div className="px-8 py-4 space-y-2">
             {navItems.map((item) => {
+              const isActive = isActiveRoute(item.href);
+
               if (item.isButton) {
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-500 hover:to-blue-400 transition-all duration-300 font-bold shadow-lg text-lg"
+                    className={`flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all duration-300 font-bold shadow-lg text-lg ${
+                      isActive
+                        ? "bg-blue-600"
+                        : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                    }`}
                   >
                     {item.name}
                   </Link>
                 );
               }
+
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-blue-500/20 transition-colors duration-300 text-lg"
+                  className={`flex items-center gap-3 px-4 py-3 text-white rounded-lg transition-colors duration-300 text-lg ${
+                    isActive ? "bg-blue-500/25" : "hover:bg-blue-500/20"
+                  }`}
                 >
                   <span className="font-medium">{item.name}</span>
                 </Link>
