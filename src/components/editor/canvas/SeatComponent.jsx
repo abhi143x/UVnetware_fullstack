@@ -30,12 +30,12 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
   }
 
   const fillColor = getFillColor()
-  const strokeColor = isEraseHovered ? '#ff7a87' : isSelected ? '#edf6ff' : seat.stroke || '#cfe4ff'
-  const strokeWidth = isEraseHovered || isSelected ? 3 : 2
+  // Dark selection border (#1a3a5c) instead of white for visibility on light canvas
+  const strokeColor = isEraseHovered ? '#ff7a87' : isSelected ? '#1a3a5c' : 'transparent'
+  const strokeWidth = isEraseHovered || isSelected ? 2.5 : 0
 
   // Determine label text
   const getLabel = () => {
-    // Priority: row+number > custom label > number > id
     if (seat.row && seat.number) {
       return `${seat.row}${seat.number}`
     }
@@ -50,14 +50,13 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
 
   const label = getLabel()
   
-  // Convert radius to size (radius represents half the square size)
+  // Seat dimensions
   const seatSize = (seat.size || seat.radius * 2) || 24
-  const fontSize = Math.max(9, Math.min(seatSize * 0.4, 12))
-  
-  // Calculate rectangle position (centered on x, y)
-  const rectX = seat.x - seatSize / 2
-  const rectY = seat.y - seatSize / 2
-  
+  const scale = seatSize / 24 // normalized to 24px base size
+  const cx = seat.x
+  const cy = seat.y
+  const fontSize = Math.max(7, Math.min(seatSize * 0.32, 10))
+
   // Determine text color based on background
   const getTextColor = () => {
     const status = seat.status || 'available'
@@ -65,10 +64,9 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
       return '#ffffff'
     }
     if (isSelected) {
-      return '#1f2937' // Dark text on light blue
+      return '#1f2937'
     }
     if (categoryColor && status === 'available') {
-      // Check if category color is dark
       const hex = categoryColor.replace('#', '')
       const r = parseInt(hex.substr(0, 2), 16)
       const g = parseInt(hex.substr(2, 2), 16)
@@ -76,34 +74,118 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
       const brightness = (r * 299 + g * 587 + b * 114) / 1000
       return brightness < 128 ? '#ffffff' : '#1f2937'
     }
-    return '#1f2937'
+    return '#ffffff'
   }
 
   const textColor = getTextColor()
+  const halfW = seatSize / 2
+  const halfH = seatSize / 2
+
+  // Derived colors for chair parts
+  const darkerFill = adjustBrightness(fillColor, -30)
+  const lighterFill = adjustBrightness(fillColor, 20)
 
   return (
-    <g>
+    <g
+      onClick={(e) => onSeatClick?.(e, seat.id)}
+      onDoubleClick={(e) => onSeatDoubleClick?.(e, seat.id)}
+      onMouseDown={(e) => onSeatMouseDown?.(e, seat)}
+      onMouseEnter={() => onSeatMouseEnter?.(seat.id)}
+      onMouseLeave={() => onSeatMouseLeave?.()}
+      className={isEraseHovered || isSelected ? 'cursor-pointer' : ''}
+    >
+      {/* Selection outline (rendered behind the chair) */}
+      {(isSelected || isEraseHovered) && (
+        <rect
+          x={cx - halfW - 2}
+          y={cy - halfH - 4}
+          width={seatSize + 4}
+          height={seatSize + 7}
+          rx={3}
+          ry={3}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+        />
+      )}
+
+      {/* ── Legs ── */}
       <rect
-        x={rectX}
-        y={rectY}
-        width={seatSize}
-        height={seatSize}
-        rx={2}
-        ry={2}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-        onClick={(e) => onSeatClick?.(e, seat.id)}
-        onDoubleClick={(e) => onSeatDoubleClick?.(e, seat.id)}
-        onMouseDown={(e) => onSeatMouseDown?.(e, seat)}
-        onMouseEnter={() => onSeatMouseEnter?.(seat.id)}
-        onMouseLeave={() => onSeatMouseLeave?.()}
-        className={isEraseHovered || isSelected ? 'cursor-pointer z-10' : ''}
+        x={cx - halfW * 0.6}
+        y={cy + halfH * 0.55}
+        width={halfW * 0.2}
+        height={halfH * 0.45}
+        rx={1}
+        fill={darkerFill}
+        opacity={0.7}
       />
+      <rect
+        x={cx + halfW * 0.4}
+        y={cy + halfH * 0.55}
+        width={halfW * 0.2}
+        height={halfH * 0.45}
+        rx={1}
+        fill={darkerFill}
+        opacity={0.7}
+      />
+
+      {/* ── Seat base / cushion ── */}
+      <rect
+        x={cx - halfW * 0.85}
+        y={cy + halfH * 0.1}
+        width={seatSize * 0.85}
+        height={halfH * 0.5}
+        rx={2}
+        fill={fillColor}
+        opacity={0.95}
+      />
+
+      {/* ── Armrests ── */}
+      <rect
+        x={cx - halfW * 0.95}
+        y={cy - halfH * 0.15}
+        width={halfW * 0.2}
+        height={halfH * 0.8}
+        rx={2}
+        fill={darkerFill}
+        opacity={0.85}
+      />
+      <rect
+        x={cx + halfW * 0.75}
+        y={cy - halfH * 0.15}
+        width={halfW * 0.2}
+        height={halfH * 0.8}
+        rx={2}
+        fill={darkerFill}
+        opacity={0.85}
+      />
+
+      {/* ── Backrest ── */}
+      <rect
+        x={cx - halfW * 0.75}
+        y={cy - halfH * 0.55}
+        width={seatSize * 0.75}
+        height={halfH * 0.75}
+        rx={3}
+        fill={lighterFill}
+        opacity={0.9}
+      />
+
+      {/* ── Headrest ── */}
+      <rect
+        x={cx - halfW * 0.45}
+        y={cy - halfH * 0.85}
+        width={seatSize * 0.45}
+        height={halfH * 0.35}
+        rx={3}
+        fill={darkerFill}
+        opacity={0.9}
+      />
+
       {/* Seat label */}
       <text
-        x={seat.x}
-        y={seat.y}
+        x={cx}
+        y={cy + halfH * 0.05}
         textAnchor="middle"
         dominantBaseline="middle"
         fill={textColor}
@@ -111,7 +193,7 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
         fontWeight="bold"
         pointerEvents="none"
         style={{
-          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.4)',
           userSelect: 'none',
         }}
       >
@@ -121,5 +203,22 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
   )
 })
 SeatSVG.displayName = 'SeatSVG'
+
+// Helper: adjust hex color brightness
+function adjustBrightness(hex, amount) {
+  try {
+    const clean = hex.replace('#', '')
+    if (clean.length < 6) return hex
+    let r = parseInt(clean.substr(0, 2), 16)
+    let g = parseInt(clean.substr(2, 2), 16)
+    let b = parseInt(clean.substr(4, 2), 16)
+    r = Math.max(0, Math.min(255, r + amount))
+    g = Math.max(0, Math.min(255, g + amount))
+    b = Math.max(0, Math.min(255, b + amount))
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+  } catch {
+    return hex
+  }
+}
 
 export default SeatSVG

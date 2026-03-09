@@ -8,48 +8,40 @@ import {
   TOOL_ROTATE,
 } from './constants/tools'
 
-const TOOLBAR_CLASSNAME =
-  'h-screen w-[72px] shrink-0 flex flex-col items-center gap-3 border-r border-white/5 bg-[#11161c] pt-4'
-
-const TOOL_BUTTON_BASE_CLASSNAME =
-  'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-[11px] font-normal leading-none transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#587cb3]'
-
-// We redefine tools to include the explicit order and labels
 export const TOOLS = [
-  { id: TOOL_SELECT, label: 'Select' },
-  { id: TOOL_SEAT, label: 'Seat' },
-  { id: TOOL_ROW, label: 'Row' },
-  { id: TOOL_ARC, label: 'Arc' },
-  { id: TOOL_ROTATE, label: 'Rotate'},
-  { id: TOOL_TEXT, label: 'Text' },
-  { id: TOOL_ERASER, label: 'Eraser' },
+  { id: TOOL_SELECT, label: 'Select', icon: '🎯' },
+  { id: TOOL_SEAT, label: 'Seat', icon: '💺' },
+  { id: TOOL_ROW, label: 'Row', icon: '📏' },
+  { id: TOOL_ARC, label: 'Arc', icon: '➰' },
+  { id: TOOL_ROTATE, label: 'Rotate', icon: '🔄' },
+  { id: TOOL_TEXT, label: 'Text', icon: 'T' },
+  { id: TOOL_ERASER, label: 'Eraser', icon: '🧹' },
 ]
 
 function Toolbar({ activeTool, onToolChange }) {
   return (
-    <aside className={TOOLBAR_CLASSNAME}>
+    <div className="grid grid-cols-3 gap-2">
       {TOOLS.map((tool) => {
         const isActive = tool.id === activeTool
-        const toolButtonClassName = `${TOOL_BUTTON_BASE_CLASSNAME} ${isActive
-          ? 'bg-[rgba(88,124,179,0.18)] border border-[rgba(88,124,179,0.4)] text-[#ffffff]'
-          : 'border border-transparent hover:bg-white/10 text-[#c9d6ea]'
-          }`
-
         return (
           <button
             key={tool.id}
             type="button"
             onClick={() => onToolChange(tool.id)}
-            className={toolButtonClassName}
+            className={`flex flex-col items-center justify-center gap-1 rounded-lg border py-2 transition-all duration-200 cursor-pointer ${isActive
+                ? 'bg-[#587cb3]/20 border-[#587cb3]/50 text-white shadow-[0_0_12px_rgba(88,124,179,0.2)]'
+                : 'bg-[#0e1319] border-white/5 text-[#7a8a9e] hover:border-white/10 hover:bg-[#161c26] hover:text-[#c9d6ea]'
+              }`}
             aria-label={tool.label}
             aria-pressed={isActive}
             title={tool.label}
           >
-            {tool.label}
+            <span className="text-sm">{tool.icon}</span>
+            <span className="text-[10px] font-medium">{tool.label}</span>
           </button>
         )
       })}
-    </aside>
+    </div>
   )
 }
 

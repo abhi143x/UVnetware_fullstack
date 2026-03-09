@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from 'react'
 import CanvasStage from './canvas/CanvasStage'
+import Minimap from './canvas/Minimap'
 import { useCanvasEvents } from './hooks/useCanvasEvents'
 import { useCursor } from './hooks/useCursor'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -16,7 +17,7 @@ import { useViewport } from './hooks/useViewport'
 import { useEditorStore } from './store/editorStore'
 import { TOOL_ERASER } from './constants/tools'
 
-function EditorCanvas() {
+function EditorCanvas({ centerOnSeatsRef }) {
   const containerRef = useRef(null)
   const [hoveredSeatId, setHoveredSeatId] = useState(null)
   const [hoveredTextId, setHoveredTextId] = useState(null)
@@ -92,8 +93,26 @@ function EditorCanvas() {
   }, [activeTool])
 
   // Hooks
-  const { viewport, camera, zoomToPoint, panCamera, getWorldPointFromStage } =
+  const { viewport, camera, setCamera, zoomToPoint, panCamera, getWorldPointFromStage, centerOnSeats } =
     useViewport(containerRef)
+
+  // Expose centerOnSeats via ref so Editor.jsx can call it
+  useEffect(() => {
+    if (centerOnSeatsRef) {
+      centerOnSeatsRef.current = centerOnSeats
+    }
+  }, [centerOnSeats, centerOnSeatsRef])
+
+  // Auto-center on template load (when templateVersion changes)
+  const templateVersion = useEditorStore((state) => state.templateVersion)
+  useEffect(() => {
+    if (templateVersion > 0 && seats.length > 0) {
+      // Delay to let viewport sizing settle after navigation
+      const timer = setTimeout(() => centerOnSeats(seats), 120)
+      return () => clearTimeout(timer)
+    }
+  }, [templateVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const {
     toolSession,
     handleMouseDown,
@@ -111,7 +130,7 @@ function EditorCanvas() {
     hoveredTextId,
     categories,
   )
-  const cursor = useCursor(activeTool, false, false) // isPanning and isDraggingSeat would need to be managed
+  const cursor = useCursor(activeTool, false, false)
   const { marqueeRect, rowPreviewPoints, arcPreviewPoints } =
     usePreviewElements(toolSession, activeTool)
 
@@ -162,7 +181,7 @@ function EditorCanvas() {
   return (
     <section
       ref={containerRef}
-      className={`h-full w-full bg-[#0e1319] select-none ${
+      className={`h-full w-full bg-[#0e1319] select-none relative ${
         cursor === 'grabbing'
           ? 'cursor-grabbing'
           : cursor === 'crosshair'
@@ -188,6 +207,13 @@ function EditorCanvas() {
         arcPreviewPoints={arcPreviewPoints}
         marqueeRect={marqueeRect}
         nextRowIndex={nextRowIndex}
+      />
+      {/* Minimap in bottom-right */}
+      <Minimap
+        seats={seats}
+        camera={camera}
+        viewport={viewport}
+        setCamera={setCamera}
       />
     </section>
   )

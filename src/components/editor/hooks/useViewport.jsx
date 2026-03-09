@@ -96,6 +96,35 @@ export function useViewport(containerRef) {
     return screenToWorldPoint(screenPoint, camera)
   }, [containerRef, camera])
 
+  const centerOnSeats = useCallback((seats) => {
+    if (!seats || seats.length === 0) return
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const s of seats) {
+      if (s.x < minX) minX = s.x
+      if (s.x > maxX) maxX = s.x
+      if (s.y < minY) minY = s.y
+      if (s.y > maxY) maxY = s.y
+    }
+    const padW = 80
+    const padH = 80
+    const worldW = (maxX - minX) + padW * 2 || 1
+    const worldH = (maxY - minY) + padH * 2 || 1
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
+
+    const scaleX = viewport.width / worldW
+    const scaleY = viewport.height / worldH
+    const newScale = clamp(Math.min(scaleX, scaleY), MIN_SCALE, MAX_SCALE)
+
+    setCamera({
+      scale: newScale,
+      position: {
+        x: viewport.width / 2 - cx * newScale,
+        y: viewport.height / 2 - cy * newScale,
+      },
+    })
+  }, [viewport, setCamera])
+
   return {
     viewport,
     camera,
@@ -103,5 +132,6 @@ export function useViewport(containerRef) {
     zoomToPoint,
     panCamera,
     getWorldPointFromStage,
+    centerOnSeats,
   }
 }
