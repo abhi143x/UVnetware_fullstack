@@ -174,14 +174,14 @@ export class SelectTool {
 
     if (session.hasMoved) {
       // Update positions (this would trigger re-renders)
-      const newSeatPositions = new Map()
+      const newSeatPositions = []
       session.baseSeatPositions.forEach((pos, id) => {
-        newSeatPositions.set(id, { x: pos.x + deltaX, y: pos.y + deltaY })
+        newSeatPositions.push({ id, x: pos.x + deltaX, y: pos.y + deltaY })
       })
 
-      const newTextPositions = new Map()
+      const newTextPositions = []
       session.baseTextPositions.forEach((pos, id) => {
-        newTextPositions.set(id, { x: pos.x + deltaX, y: pos.y + deltaY })
+        newTextPositions.push({ id, x: pos.x + deltaX, y: pos.y + deltaY })
       })
 
       this.moveSeats(newSeatPositions)
