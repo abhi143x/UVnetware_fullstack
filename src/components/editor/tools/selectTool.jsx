@@ -66,12 +66,17 @@ export class SelectTool {
         .filter(seat => isSeatInsideBounds(seat, bounds))
         .map(seat => seat.id)
 
+      const selectedTextIds = context.texts
+        .filter(text => this.isTextInsideBounds(text, bounds))
+        .map(text => text.id)
+
       return {
         type: 'marquee',
         startPoint: session.startPoint,
         endPoint: worldPoint,
         bounds,
         selectedSeatIds,
+        selectedTextIds,
       }
     }
 
@@ -87,7 +92,7 @@ export class SelectTool {
     }
 
     if (session.type === 'marquee') {
-      this.marqueeSelect(session.selectedSeatIds, [], event.shiftKey || event.ctrlKey || event.metaKey)
+      this.marqueeSelect(session.selectedSeatIds, session.selectedTextIds || [], event.shiftKey || event.ctrlKey || event.metaKey)
       return null
     }
 
@@ -129,17 +134,33 @@ export class SelectTool {
   }
 
   findTextAtPoint(point, texts) {
-    // Simple text hit detection (can be improved)
+    // Basic hit detection for centered text
     return texts.find(text => {
-      const width = (text.content?.length || 0) * 10 // Rough estimate
-      const height = text.fontSize || 20
+      const scale = text.scale || 1
+      const fontSize = text.fontSize || 20
+      const width = (text.content?.length || 0) * fontSize * 0.6 * scale // rough estimation of text width
+      const height = fontSize * scale
+
+      const halfWidth = width / 2
+      const halfHeight = height / 2
+
       return (
-        point.x >= text.x &&
-        point.x <= text.x + width &&
-        point.y >= text.y - height &&
-        point.y <= text.y
+        point.x >= text.x - halfWidth &&
+        point.x <= text.x + halfWidth &&
+        point.y >= text.y - halfHeight &&
+        point.y <= text.y + halfHeight
       )
     })
+  }
+
+  isTextInsideBounds(text, bounds) {
+    // A simplified bounding box check: checking if the center coordinate is inside
+    return (
+      text.x >= bounds.x &&
+      text.x <= bounds.x + bounds.width &&
+      text.y >= bounds.y &&
+      text.y <= bounds.y + bounds.height
+    )
   }
 
   startDrag(event, worldPoint, seatsById, textsById, selectedSeatIds, selectedTextIds) {
