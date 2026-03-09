@@ -51,7 +51,11 @@ function EditorCanvas({ centerOnSeatsRef }) {
     commitArc,
     rotateSelection,
     clearSelection,
-  } = useEditorStore()
+    copySelection,
+    pasteClipboard,
+  } = useEditorStore();
+
+
 
   const storeActions = useMemo(() => ({
     handleWorldClick,
@@ -138,7 +142,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
   useKeyboardShortcuts(
     () => storeActions.clearSelection(),
     () => {}, // escape handler
-  )
+    { onCopy: copySelection, onPaste: pasteClipboard },
+  );
 
   // Context for tool handlers
   const context = {

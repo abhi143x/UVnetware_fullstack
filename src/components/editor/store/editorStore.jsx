@@ -485,6 +485,8 @@ export const useEditorStore = create((set, get) => {
     texts: persisted.texts,
     selectedSeatIds: [],
     selectedTextIds: [],
+    clipboard: null,
+    pasteCount: 0,
     textPrompt: null,
     textDraft: '',
     lastSavedAt: persisted.seats.length > 0 || persisted.texts.length > 0 ? Date.now() : null,
@@ -917,6 +919,92 @@ export const useEditorStore = create((set, get) => {
         anchor.click()
         URL.revokeObjectURL(url)
     },
+
+    // ─── Copy / Paste ──────────────────────────────────────────────────────
+
+    copySelection: () => {
+        const { seats, texts, selectedSeatIds, selectedTextIds } = get()
+        const copiedSeats = seats.filter(s => selectedSeatIds.includes(s.id))
+        const copiedTexts = texts.filter(t => selectedTextIds.includes(t.id))
+        if (copiedSeats.length === 0 && copiedTexts.length === 0) return
+
+        // Compute centroid so paste positions are relative
+        const allItems = [
+            ...copiedSeats.map(s => ({ x: s.x, y: s.y })),
+            ...copiedTexts.map(t => ({ x: t.x, y: t.y })),
+        ]
+        const cx = allItems.reduce((sum, p) => sum + p.x, 0) / allItems.length
+        const cy = allItems.reduce((sum, p) => sum + p.y, 0) / allItems.length
+
+        set({
+            clipboard: {
+                seats: copiedSeats.map(s => ({ ...s, x: s.x - cx, y: s.y - cy })),
+                texts: copiedTexts.map(t => ({ ...t, x: t.x - cx, y: t.y - cy })),
+                cx,
+                cy,
+            },
+            pasteCount: 0,
+        })
+    },
+
+    pasteClipboard: () => set((state) => {
+        const { clipboard } = state
+        if (!clipboard) return state
+
+        const nextPasteCount = state.pasteCount + 1
+        const offset = nextPasteCount * 30
+
+        // Build max seat number per row from existing seats
+        const maxNumberPerRow = {}
+        state.seats.forEach(s => {
+            if (s.row) {
+                maxNumberPerRow[s.row] = Math.max(maxNumberPerRow[s.row] || 0, s.number || 0)
+            }
+        })
+
+        // Track running count per row for pasted seats
+        const pastedCountPerRow = {}
+
+        const newSeatIds = []
+        const pastedSeats = clipboard.seats.map(s => {
+            const newId = createId('seat')
+            newSeatIds.push(newId)
+            const row = s.row || 'A'
+            if (!pastedCountPerRow[row]) pastedCountPerRow[row] = 0
+            pastedCountPerRow[row]++
+            const newNumber = (maxNumberPerRow[row] || 0) + pastedCountPerRow[row]
+            return {
+                ...s,
+                id: newId,
+                x: clipboard.cx + s.x + offset,
+                y: clipboard.cy + s.y + offset,
+                number: newNumber,
+                label: generateSeatLabel(row, newNumber),
+            }
+        })
+
+        const newTextIds = []
+        const pastedTexts = clipboard.texts.map(t => {
+            const newId = createId('text')
+            newTextIds.push(newId)
+            return { ...t, id: newId, x: clipboard.cx + t.x + offset, y: clipboard.cy + t.y + offset }
+        })
+
+        // Filter out seats that overlap existing ones
+        const allExistingSeats = state.seats
+        const nonOverlapping = pastedSeats.filter(
+            s => !isOverlapping(s.x, s.y, allExistingSeats, s.radius ?? DEFAULT_SEAT_RADIUS)
+        )
+
+        return {
+            seats: [...state.seats, ...nonOverlapping],
+            texts: [...state.texts, ...pastedTexts],
+            selectedSeatIds: nonOverlapping.map(s => s.id),
+            selectedTextIds: newTextIds,
+            pasteCount: nextPasteCount,
+            activeTool: TOOL_SELECT,
+        }
+    }),
 
     clearLayout: () => {
         localStorage.removeItem(STORAGE_KEY)
