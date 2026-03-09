@@ -1,141 +1,147 @@
-import React, { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import OAuth from "./OAuth";
 
-const SignUp = () => {
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+export default function SignUp() {
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    password: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const getSignupEndpoint = () => {
+    const directEndpoint = import.meta.env.VITE_AUTH_SIGNUP_URL?.trim();
+    if (directEndpoint) return directEndpoint;
+
+    const baseUrl = import.meta.env.VITE_AUTH_API_URL?.trim();
+    if (!baseUrl) return "";
+
+    return `${baseUrl.replace(/\/$/, "")}/signup`;
+  };
+
+  const parseJsonSafely = async (response) => {
+    const rawBody = await response.text();
+    if (!rawBody) return {};
+
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      return null;
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      setLoading(true);
+      const endpoint = getSignupEndpoint();
+      let signedUpUser = {
+        username: formData.username,
+        email: formData.email,
+      };
+
+      // Allow local-only auth in development when no backend endpoint is configured.
+      if (endpoint) {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+
+        const data = await parseJsonSafely(response);
+        if (data === null) {
+          setError("Server returned an invalid response format");
+          return;
+        }
+
+        if (!response.ok || data.success === false) {
+          setError(data.message || "Sign up failed");
+          return;
+        }
+
+        signedUpUser = data?.user ?? signedUpUser;
+      }
+
+      localStorage.setItem("uvnet_auth_user", JSON.stringify(signedUpUser));
+      window.dispatchEvent(new Event("auth-changed"));
+
+      navigate("/");
+    } catch (submitError) {
+      setError(submitError.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[var(--bg)] text-[var(--text)] px-4">
-      {/* Top Left Brand */}
-      <Link
-        to="/"
-        className="absolute top-6 left-6 text-xl font-semibold hover:opacity-80 transition"
-      >
-        <span className="text-[var(--accent)]">UV</span>netware
-      </Link>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-lg">
+        <h1 className="text-3xl text-center font-semibold mb-7">Sign Up</h1>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <input
+            className="p-3 rounded-lg bg-[#000021] text-white"
+            style={{ border: "1.75px solid #000055" }}
+            type="text"
+            placeholder="Username"
+            value={formData.username}
+            onChange={handleChange}
+            id="username"
+            required
+          />
 
-      <div className="w-full max-w-md">
-        {/* Heading */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold mb-6">
-            Welcome to <span className="text-[var(--accent)]">UV</span>netware
-          </h1>
-          <p className="text-[var(--light-text)] text-sm">
-            Enter your details to get started
-          </p>
+          <input
+            className="p-3 rounded-lg bg-[#000021] text-white"
+            style={{ border: "1.75px solid #000055" }}
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            id="email"
+            required
+          />
+
+          <input
+            className="p-3 rounded-lg bg-[#000021] text-white"
+            style={{ border: "1.75px solid #000055" }}
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            id="password"
+            minLength={6}
+            required
+          />
+
+          <button
+            disabled={loading}
+            className="bg-[#000021] text-white p-3 rounded-lg uppercase hover:opacity-95 disabled:opacity-80"
+            style={{ border: "1.75px solid #000055" }}
+            type="submit"
+          >
+            {loading ? "Loading..." : "Sign Up"}
+          </button>
+
+          <OAuth />
+        </form>
+
+        <div className="flex gap-2 mt-5 justify-center">
+          <p>have an account?</p>
+          <Link to="/login">
+            <span className="text-blue-500">Sign In</span>
+          </Link>
         </div>
 
-        {/* Form */}
-        <form className="space-y-5">
-          {/* Company Name */}
-          <div>
-            <label className="block mb-1 text-sm">Company Name</label>
-            <input
-              type="text"
-              placeholder="Enter your Company name"
-              className="w-full px-3 py-2 rounded-md bg-transparent border border-[var(--border)] 
-              focus:outline-none focus:border-[var(--accent)] transition"
-            />
-          </div>
-
-          {/* Work Email */}
-          <div>
-            <label className="block mb-1 text-sm">Work Email</label>
-            <input
-              type="email"
-              placeholder="Enter your work email address"
-              className="w-full px-3 py-2 rounded-md bg-transparent border border-[var(--border)] 
-              focus:outline-none focus:border-[var(--accent)] transition"
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block mb-1 text-sm">Password</label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Create a password"
-                className="w-full px-3 py-2 pr-10 rounded-md bg-transparent border border-[var(--border)] 
-                focus:outline-none focus:border-[var(--accent)] transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text)] hover:text-[var(--text)] transition"
-              >
-                {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block mb-1 text-sm">Confirm Password</label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm your password"
-                className="w-full px-3 py-2 pr-10 rounded-md bg-transparent border border-[var(--border)] 
-                focus:outline-none focus:border-[var(--accent)] transition"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--light-text)] hover:text-[var(--text)] transition"
-              >
-                {showConfirmPassword ? (
-                  <FaEyeSlash size={16} />
-                ) : (
-                  <FaEye size={16} />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Signup Button */}
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-md bg-[var(--accent)] 
-            hover:opacity-90 transition"
-          >
-            Sign Up
-          </button>
-
-          {/* Divider */}
-          <div className="flex items-center gap-2 py-3">
-            <div className="flex-1 h-px bg-[var(--border)]"></div>
-            <span className="text-xs text-[var(--light-text)]">
-              Or continue with
-            </span>
-            <div className="flex-1 h-px bg-[var(--border)]"></div>
-          </div>
-
-          {/* Google Button */}
-          <button
-            type="button"
-            className="w-full flex items-center justify-center gap-2 py-2.5 
-            rounded-md border border-[var(--border)] 
-            hover:bg-[#111] hover:cursor-pointer transition"
-          >
-            <FcGoogle size={18} />
-            <span className="text-sm">Sign up with Google</span>
-          </button>
-
-          {/* Login Redirect */}
-          <p className="text-center text-sm pt-2">
-            Already have an account?{" "}
-            <Link to="/login" className="!underline !text-[var(--accent)]">
-              Login
-            </Link>
-          </p>
-        </form>
+        {error && <p className="text-red-500 mt-5">{error}</p>}
       </div>
     </div>
   );
-};
-
-export default SignUp;
+}

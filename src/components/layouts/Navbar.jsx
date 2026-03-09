@@ -1,9 +1,139 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { FiMenu, FiX } from "react-icons/fi";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingPhoto, setIsEditingPhoto] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftPhoto, setDraftPhoto] = useState("");
+  const profileMenuRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const syncAuthState = () => {
+      try {
+        const rawUser = localStorage.getItem("uvnet_auth_user");
+        setCurrentUser(rawUser ? JSON.parse(rawUser) : null);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
+    syncAuthState();
+    window.addEventListener("auth-changed", syncAuthState);
+    window.addEventListener("storage", syncAuthState);
+
+    return () => {
+      window.removeEventListener("auth-changed", syncAuthState);
+      window.removeEventListener("storage", syncAuthState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target)
+      ) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setProfileOpen(false);
+      setIsEditingName(false);
+      setIsEditingPhoto(false);
+      return;
+    }
+
+    setDraftName(currentUser.username || currentUser.name || "");
+    setDraftPhoto(currentUser.photo || "");
+  }, [currentUser]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("uvnet_auth_user");
+    window.dispatchEvent(new Event("auth-changed"));
+    setMobileOpen(false);
+    setProfileOpen(false);
+    setIsEditingName(false);
+    setIsEditingPhoto(false);
+    navigate("/");
+  };
+
+  const displayName =
+    currentUser?.username || currentUser?.name || currentUser?.email || "User";
+
+  const email = currentUser?.email || "No email";
+
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "U";
+
+  const profilePhoto = currentUser?.photo || "";
+
+  const saveUserProfile = (updates) => {
+    if (!currentUser) return;
+
+    const updatedUser = {
+      ...currentUser,
+      ...updates,
+    };
+
+    localStorage.setItem("uvnet_auth_user", JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event("auth-changed"));
+  };
+
+  const handleSaveName = () => {
+    const trimmedName = draftName.trim();
+    saveUserProfile({
+      username:
+        trimmedName || currentUser?.username || currentUser?.name || "User",
+    });
+    setIsEditingName(false);
+  };
+
+  const handleSavePhoto = () => {
+    saveUserProfile({ photo: draftPhoto.trim() });
+    setIsEditingPhoto(false);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image size should be less than 2MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setDraftPhoto(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -22,7 +152,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
-      <div className="w-full px-8 sm:px-12 py-4 sm:py-5 flex items-center gap-8">
+      <div className="w-full px-8 sm:px-12 py-2.5 sm:py-3 flex items-center gap-8">
         {/* SECTION 1: Company Name */}
 
         <div className="flex-shrink-0">
@@ -48,14 +178,14 @@ export default function Navbar() {
               );
             }
             return (
-              <a
+              <Link
                 key={item.name}
-                href={item.href}
+                to={item.href}
                 className="flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 hover:bg-blue-500/10 hover:text-blue-400 group relative whitespace-nowrap"
               >
                 <span>{item.name}</span>
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 group-hover:w-full rounded-full"></span>
-              </a>
+              </Link>
             );
           })}
         </div>
@@ -63,18 +193,189 @@ export default function Navbar() {
         {/* SECTION 3: Login/Signup */}
 
         <div className="hidden md:flex flex-shrink-0 items-center gap-4">
-          <Link
-            to="/login"
-            className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
-          >
-            Login
-          </Link>
-          <Link
-            to="/signup"
-            className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
-          >
-            Signup
-          </Link>
+          {currentUser ? (
+            <>
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((prev) => !prev)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#000021] hover:bg-[#000055] transition-all duration-300 text-white text-sm font-semibold"
+                  style={{ border: "1.75px solid #000055" }}
+                >
+                  {profilePhoto ? (
+                    <img
+                      src={profilePhoto}
+                      alt="Profile"
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
+                      {initials}
+                    </div>
+                  )}
+                  <span>Profile</span>
+                </button>
+
+                {profileOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-72 bg-[#000021] rounded-xl p-4 shadow-2xl"
+                    style={{ border: "1.75px solid #000055" }}
+                  >
+                    <div className="flex items-start gap-3 mb-4">
+                      {profilePhoto ? (
+                        <img
+                          src={profilePhoto}
+                          alt="Profile"
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                          {initials}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white font-semibold truncate mb-1">
+                          {displayName}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingPhoto((prev) => !prev)}
+                          className="text-blue-300 text-xs underline underline-offset-2"
+                        >
+                          Edit Photo
+                        </button>
+                      </div>
+                    </div>
+
+                    {isEditingPhoto && (
+                      <div className="space-y-2 mb-3">
+                        {draftPhoto && (
+                          <div className="flex justify-center mb-2">
+                            <img
+                              src={draftPhoto}
+                              alt="Preview"
+                              className="w-20 h-20 rounded-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="w-full p-2 rounded-lg bg-black text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer"
+                          style={{ border: "1.75px solid #000055" }}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSavePhoto}
+                            className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingPhoto(false);
+                              setDraftPhoto(currentUser?.photo || "");
+                            }}
+                            className="flex-1 px-3 py-2 rounded-lg bg-black text-white font-semibold"
+                            style={{ border: "1.75px solid #000055" }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-3">
+                      <p className="text-blue-200 text-xs mb-1">Name</p>
+                      {!isEditingName ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-white text-sm truncate">
+                            {displayName}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingName(true)}
+                            className="text-blue-300 text-xs underline underline-offset-2"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={draftName}
+                            onChange={(e) => setDraftName(e.target.value)}
+                            placeholder="Display name"
+                            className="w-full p-2 rounded-lg bg-black text-white"
+                            style={{ border: "1.75px solid #000055" }}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSaveName}
+                              className="flex-1 px-3 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingName(false);
+                                setDraftName(
+                                  currentUser?.username ||
+                                    currentUser?.name ||
+                                    "",
+                                );
+                              }}
+                              className="flex-1 px-3 py-2 rounded-lg bg-black text-white font-semibold"
+                              style={{ border: "1.75px solid #000055" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-blue-200 text-xs">Email</p>
+                      <p className="text-white text-sm break-all">{email}</p>
+                    </div>
+
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleLogout}
+                        className="px-6 py-2 text-white text-sm font-bold rounded-lg bg-[#000021] hover:bg-[#000055] transition-all duration-300"
+                        style={{ border: "1.75px solid #000055" }}
+                        type="button"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
+              >
+                Signup
+              </Link>
+            </>
+          )}
         </div>
 
         {/* MOBILE MENU BUTTON */}
@@ -111,31 +412,68 @@ export default function Navbar() {
                 );
               }
               return (
-                <a
+                <Link
                   key={item.name}
-                  href={item.href}
+                  to={item.href}
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-blue-500/20 transition-colors duration-300 text-lg"
                 >
                   <span className="font-medium">{item.name}</span>
-                </a>
+                </Link>
               );
             })}
             <div className="pt-4 border-t border-blue-500/20 space-y-2 mt-4">
-              <Link
-                to="/login"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center gap-8 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 font-bold text-lg"
-              >
-                Login
-              </Link>
-              <Link
-                to="/signup"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-600 rounded-lg border border-blue-600 hover:bg-gradient-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white hover:border-transparent transition-all duration-300 font-bold text-lg"
-              >
-                Signup
-              </Link>
+              {currentUser ? (
+                <>
+                  <div
+                    className="flex items-center gap-3 px-3 py-2 rounded-full bg-[#000021]"
+                    style={{ border: "1.75px solid #000055" }}
+                  >
+                    {profilePhoto ? (
+                      <img
+                        src={profilePhoto}
+                        alt="Profile"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                        {initials}
+                      </div>
+                    )}
+                    <div className="text-left min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-blue-200 text-xs truncate">{email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#000021] text-white rounded-lg hover:bg-[#000055] transition-colors duration-300 font-bold text-lg"
+                    style={{ border: "1px solid #000055" }}
+                    type="button"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center gap-8 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 font-bold text-lg"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-600 rounded-lg border border-blue-600 hover:bg-gradient-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white hover:border-transparent transition-all duration-300 font-bold text-lg"
+                  >
+                    Signup
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

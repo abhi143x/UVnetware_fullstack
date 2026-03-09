@@ -319,7 +319,8 @@ export default function Feature() {
             <Card
               key={index}
               to={feature.link}
-              className="group relative block bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-sm rounded-2xl p-8 transition-all duration-500 border border-gray-800/50 hover:border-blue-500/50 hover:shadow-2xl hover:shadow-green-500/10 hover:-translate-y-2"
+              className="group relative block bg-[#000021] backdrop-blur-sm rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-green-500/10 hover:-translate-y-2"
+              style={{ border: "1.75px solid #000055" }}
             >
               {/* Hover glow effect */}
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-emerald-500/0 group-hover:from-blue-500/5 group-hover:to-emerald-500/5 rounded-2xl transition-all duration-500"></div>

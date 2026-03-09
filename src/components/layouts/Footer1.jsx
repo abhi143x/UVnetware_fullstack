@@ -2,7 +2,10 @@ import React from "react";
 
 export default function Footer() {
   return (
-    <footer className=" mt-36 bg-gray-100 dark:bg-gray-900 w-screen">
+    <footer
+      className=" mt-36 bg-[#000021] w-screen"
+      style={{ borderTop: "1.75px solid #000055" }}
+    >
       <div className="w-full px-8 sm:px-12 flex flex-col items-center py-16">
         {/* Main Footer Grid */}
         <div className="grid grid-cols-3 gap-16 mb-12 w-full justify-center">
@@ -89,7 +92,10 @@ export default function Footer() {
         </div>
 
         {/* Top Border */}
-        <div className="border-t border-gray-300 dark:border-gray-700 mb-8 w-full"></div>
+        <div
+          className="mb-8 w-full"
+          style={{ borderTop: "1.75px solid #000055" }}
+        ></div>
 
         {/* Bottom Center - Legal/Copyright */}
         <div className="flex flex-col items-center text-center">
