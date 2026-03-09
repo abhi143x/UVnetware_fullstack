@@ -14,26 +14,44 @@ export function useCanvasEvents({
   onToolClick,
 }) {
   const panSessionRef = useRef(null)
+  const isSpacePressedRef = useRef(false)
   const suppressNextClickRef = useRef(false)
+
+  const getCanvasRelativePoint = useCallback((clientX, clientY) => {
+    const container = containerRef.current
+    if (!container) return { x: 0, y: 0 }
+    const rect = container.getBoundingClientRect()
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    }
+  }, [containerRef])
 
   const handleWheel = useCallback((event) => {
     event.preventDefault()
 
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
-    const newScale = camera.scale * zoomFactor
+    const screenPoint = getCanvasRelativePoint(event.clientX, event.clientY)
 
-    zoomToPoint(
-      { x: event.clientX, y: event.clientY },
-      newScale
-    )
-  }, [zoomToPoint, camera.scale])
+    if (event.ctrlKey) {
+      // Zoom towards cursor
+      const zoomFactor = event.deltaY > 0 ? 0.92 : 1.08
+      const newScale = camera.scale * zoomFactor
+      zoomToPoint(screenPoint, newScale)
+    } else {
+      // Professional pan with wheel (standard scroll behavior)
+      panCamera(-event.deltaX, -event.deltaY)
+    }
+  }, [getCanvasRelativePoint, zoomToPoint, panCamera, camera.scale])
 
   const handleMouseDown = useCallback((event) => {
+    const screenPoint = getCanvasRelativePoint(event.clientX, event.clientY)
     const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
     if (!worldPoint) return
 
-    // Handle panning with right mouse button, middle mouse, or space+click
-    if (event.button === 2 || event.button === 1 || (event.button === 0 && event.altKey)) {
+    // Handle panning with middle mouse (button 1) or space (handled via isSpacePressedRef)
+    const isPanning = event.button === 1 || event.button === 2 || isSpacePressedRef.current
+
+    if (isPanning) {
       panSessionRef.current = {
         startClientX: event.clientX,
         startClientY: event.clientY,
@@ -47,7 +65,7 @@ export function useCanvasEvents({
 
     // Delegate to tool handler
     onToolMouseDown(event, worldPoint)
-  }, [getWorldPointFromStage, onToolMouseDown])
+  }, [getCanvasRelativePoint, getWorldPointFromStage, onToolMouseDown])
 
   const handleMouseMove = useCallback((event) => {
     if (panSessionRef.current) {
@@ -113,13 +131,31 @@ export function useCanvasEvents({
     onToolClick(event, worldPoint)
   }, [getWorldPointFromStage, onToolClick])
 
-  // Attach wheel event
+  // Attach event listeners
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space') {
+        isSpacePressedRef.current = true
+      }
+    }
+    const handleKeyUp = (e) => {
+      if (e.code === 'Space') {
+        isSpacePressedRef.current = false
+      }
+    }
+
     container.addEventListener('wheel', handleWheel, { passive: false })
-    return () => container.removeEventListener('wheel', handleWheel)
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel)
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
   }, [containerRef, handleWheel])
 
   return {

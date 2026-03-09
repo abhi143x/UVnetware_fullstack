@@ -1,43 +1,57 @@
 export class EraserTool {
   constructor(storeActions) {
-    this.eraseSeat = storeActions.eraseSeat
-    this.eraseText = storeActions.eraseText
+    this.eraseSeat = storeActions.eraseSeat;
+    this.eraseText = storeActions.eraseText;
+    this.setEraseHover = storeActions.setEraseHover;
   }
 
   handleMouseDown(event, worldPoint, context) {
-    const { seats, texts } = context
+    const { seats, texts } = context;
 
     // Find and erase items at point
-    const seatToErase = this.findSeatAtPoint(worldPoint, seats)
-    const textToErase = this.findTextAtPoint(worldPoint, texts)
+    const seatToErase = this.findSeatAtPoint(worldPoint, seats);
+    const textToErase = this.findTextAtPoint(worldPoint, texts);
+
+    this.setEraseHover?.(seatToErase?.id ?? null, textToErase?.id ?? null);
 
     if (seatToErase) {
-      this.eraseSeat(seatToErase.id)
+      this.eraseSeat(seatToErase.id);
     } else if (textToErase) {
-      this.eraseText(textToErase.id)
+      this.eraseText(textToErase.id);
     }
 
-    return null
+    return {
+      type: "erasing",
+    };
   }
 
   handleMouseMove(event, worldPoint, context, session) {
-    // Continuous erasing while dragging
-    const { seats, texts } = context
+    // Update hover target continuously so seats/texts react visually.
+    const { seats, texts } = context;
 
-    const seatToErase = this.findSeatAtPoint(worldPoint, seats)
-    const textToErase = this.findTextAtPoint(worldPoint, texts)
+    const seatToErase = this.findSeatAtPoint(worldPoint, seats);
+    const textToErase = this.findTextAtPoint(worldPoint, texts);
 
-    if (seatToErase) {
-      this.eraseSeat(seatToErase.id)
-    } else if (textToErase) {
-      this.eraseText(textToErase.id)
+    this.setEraseHover?.(seatToErase?.id ?? null, textToErase?.id ?? null);
+
+    const isPointerDown =
+      (event.buttons & 1) === 1 || session?.type === "erasing";
+
+    if (!isPointerDown) {
+      return session;
     }
 
-    return session
+    if (seatToErase) {
+      this.eraseSeat(seatToErase.id);
+    } else if (textToErase) {
+      this.eraseText(textToErase.id);
+    }
+
+    return session;
   }
 
   handleMouseUp(event, worldPoint, context, session) {
-    return null
+    return null;
   }
 
   handleClick(event, worldPoint, context) {
@@ -45,24 +59,29 @@ export class EraserTool {
   }
 
   findSeatAtPoint(point, seats) {
-    return seats.find(seat => {
-      const dx = point.x - seat.x
-      const dy = point.y - seat.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      return distance <= seat.radius
-    })
+    return seats.find((seat) => {
+      const dx = point.x - seat.x;
+      const dy = point.y - seat.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance <= seat.radius;
+    });
   }
 
   findTextAtPoint(point, texts) {
-    return texts.find(text => {
-      const width = (text.content?.length || 0) * 10
-      const height = text.fontSize || 20
+    return texts.find((text) => {
+      const scale = text.scale || 1;
+      const fontSize = text.fontSize || 20;
+      const width = (text.content?.length || 0) * fontSize * 0.55 * scale;
+      const height = fontSize * scale;
+      const halfWidth = width / 2;
+      const halfHeight = height / 2;
+
       return (
-        point.x >= text.x &&
-        point.x <= text.x + width &&
-        point.y >= text.y - height &&
-        point.y <= text.y
-      )
-    })
+        point.x >= text.x - halfWidth &&
+        point.x <= text.x + halfWidth &&
+        point.y >= text.y - halfHeight &&
+        point.y <= text.y + halfHeight
+      );
+    });
   }
 }
