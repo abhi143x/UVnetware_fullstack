@@ -46,41 +46,43 @@ function EditorCanvas() {
     eraseText,
     commitRow,
     commitArc,
+    rotateSelection,
     clearSelection,
   } = useEditorStore();
 
-  const storeActions = useMemo(
-    () => ({
-      handleWorldClick,
-      selectSeat,
-      selectText,
-      smartRowSelect,
-      moveSeats,
-      moveTexts,
-      marqueeSelect,
-      eraseSeat,
-      eraseText,
-      commitRow,
-      commitArc,
-      clearSelection,
-      setEraseHover,
-    }),
-    [
-      handleWorldClick,
-      selectSeat,
-      selectText,
-      smartRowSelect,
-      moveSeats,
-      moveTexts,
-      marqueeSelect,
-      eraseSeat,
-      eraseText,
-      commitRow,
-      commitArc,
-      clearSelection,
-      setEraseHover,
-    ],
-  );
+
+
+  const storeActions = useMemo(() => ({
+    handleWorldClick,
+    selectSeat,
+    selectText,
+    smartRowSelect,
+    moveSeats,
+    moveTexts,
+    marqueeSelect,
+    eraseSeat,
+    eraseText,
+    commitRow,
+    commitArc,
+    rotateSelection,
+    clearSelection,
+    setEraseHover,
+  }), [
+    handleWorldClick,
+    selectSeat,
+    selectText,
+    smartRowSelect,
+    moveSeats,
+    moveTexts,
+    marqueeSelect,
+    eraseSeat,
+    eraseText,
+    commitRow,
+    commitArc,
+    rotateSelection,
+    clearSelection,
+    setEraseHover,
+  ]);
 
   useEffect(() => {
     if (activeTool !== TOOL_ERASER) {

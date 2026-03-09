@@ -4,6 +4,7 @@ export const TOOL_ROW = 'row'
 export const TOOL_ARC = 'arc'
 export const TOOL_ERASER = 'eraser'
 export const TOOL_TEXT = 'text'
+export const TOOL_ROTATE = 'rotate'
 
 export const TOOLS = [
   { id: TOOL_SELECT, label: 'Select' },

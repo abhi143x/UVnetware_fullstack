@@ -89,7 +89,7 @@ export function normalizeAngleDelta(angle) {
   return normalizedAngle
 }
 
-export function buildArcPoints(centerPoint, radius, startAngle, totalSweep) {
+export function buildArcPoints(centerPoint, radius, startAngle, totalSweep, rotation=0) {
   if (radius <= 0 || startAngle === null || totalSweep === null) return [centerPoint]
 
   const arcLength = Math.abs(totalSweep) * radius
@@ -105,7 +105,7 @@ export function buildArcPoints(centerPoint, radius, startAngle, totalSweep) {
 
   for (let step = 0; step <= segmentCount; step += 1) {
     const progress = step / segmentCount
-    const angle = startAngle + totalSweep * progress
+    const angle = startAngle + totalSweep * progress + rotation
     points.push({
       x: centerPoint.x + radius * Math.cos(angle),
       y: centerPoint.y + radius * Math.sin(angle),

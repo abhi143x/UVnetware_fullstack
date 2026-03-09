@@ -318,6 +318,39 @@ export const useEditorStore = create((set, get) => {
         return { selectedSeatIds: rowSeatIds }
     }),
 
+    rotateSelection: (angle) => set((state) => {
+
+        const selected = state.seats.filter(seat =>
+            state.selectedSeatIds.includes(seat.id)
+        )
+
+        if (selected.length === 0) return state
+
+        const cx = selected.reduce((sum, s) => sum + s.x, 0) / selected.length
+        const cy = selected.reduce((sum, s) => sum + s.y, 0) / selected.length
+
+        const rotatedSeats = state.seats.map((seat) => {
+
+            if (!state.selectedSeatIds.includes(seat.id)) return seat
+
+            const dx = seat.x - cx
+            const dy = seat.y - cy
+
+            const rx = dx * Math.cos(angle) - dy * Math.sin(angle)
+            const ry = dx * Math.sin(angle) + dy * Math.cos(angle)
+
+            return {
+            ...seat,
+            x: cx + rx,
+            y: cy + ry
+            }
+
+        })
+
+  return { seats: rotatedSeats }
+
+    }),
+
     marqueeSelect: (seatIds, textIds, shiftKey) => set((state) => {
         if (state.activeTool !== TOOL_SELECT) return state
 

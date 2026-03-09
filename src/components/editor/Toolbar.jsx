@@ -5,6 +5,7 @@ import {
   TOOL_SEAT,
   TOOL_SELECT,
   TOOL_TEXT,
+  TOOL_ROTATE,
 } from './constants/tools'
 
 const TOOLBAR_CLASSNAME =
@@ -19,6 +20,7 @@ export const TOOLS = [
   { id: TOOL_SEAT, label: 'Seat' },
   { id: TOOL_ROW, label: 'Row' },
   { id: TOOL_ARC, label: 'Arc' },
+  { id: TOOL_ROTATE, label: 'Rotate'},
   { id: TOOL_TEXT, label: 'Text' },
   { id: TOOL_ERASER, label: 'Eraser' },
 ]
