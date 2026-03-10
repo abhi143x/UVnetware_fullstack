@@ -12,6 +12,12 @@ import {
   generateSeatLabel,
   assignRowNumbers,
 } from "../utils/seatNumbering";
+import {
+  HISTORY_INITIAL_STATE,
+  makeTrackedSet,
+  undoAction,
+  redoAction,
+} from "../hooks/useHistory";
 
 const STORAGE_KEY = "uvnetware-layout";
 
@@ -773,6 +779,7 @@ export const VENUE_TEMPLATES = [
 
 export const useEditorStore = create((set, get) => {
   const persisted = loadFromStorage();
+  const trackedSet = makeTrackedSet(set);
 
   return {
     // State
@@ -785,6 +792,7 @@ export const useEditorStore = create((set, get) => {
     pasteCount: 0,
     textPrompt: null,
     textDraft: "",
+    ...HISTORY_INITIAL_STATE,
     lastSavedAt:
       persisted.seats.length > 0 || persisted.texts.length > 0
         ? Date.now()
@@ -800,7 +808,7 @@ export const useEditorStore = create((set, get) => {
 
     // Actions
     loadTemplate: (templateData) =>
-      set((state) => ({
+      trackedSet((state) => ({
         seats: templateData.seats || [],
         texts: templateData.texts || [],
         selectedSeatIds: [],
@@ -820,14 +828,14 @@ export const useEditorStore = create((set, get) => {
       }),
 
     updateText: (textId, updates) =>
-      set((state) => ({
+      trackedSet((state) => ({
         texts: state.texts.map((t) =>
           t.id === textId ? { ...t, ...updates } : t,
         ),
       })),
 
     updateSeat: (seatId, updates) =>
-      set((state) => ({
+      trackedSet((state) => ({
         seats: state.seats.map((s) => {
           if (s.id === seatId) {
             const updated = { ...s, ...updates };
@@ -842,7 +850,7 @@ export const useEditorStore = create((set, get) => {
       })),
 
     updateSeats: (seatIds, updates) =>
-      set((state) => ({
+      trackedSet((state) => ({
         seats: state.seats.map((s) => {
           if (seatIds.includes(s.id)) {
             const updated = { ...s, ...updates };
@@ -858,7 +866,7 @@ export const useEditorStore = create((set, get) => {
 
     // Category management
     addCategory: (category) =>
-      set((state) => ({
+      trackedSet((state) => ({
         categories: [
           ...state.categories,
           { ...category, id: category.id || createId("category") },
@@ -866,14 +874,14 @@ export const useEditorStore = create((set, get) => {
       })),
 
     updateCategory: (categoryId, updates) =>
-      set((state) => ({
+      trackedSet((state) => ({
         categories: state.categories.map((c) =>
           c.id === categoryId ? { ...c, ...updates } : c,
         ),
       })),
 
     removeCategory: (categoryId) =>
-      set((state) => ({
+      trackedSet((state) => ({
         categories: state.categories.filter((c) => c.id !== categoryId),
         seats: state.seats.map((s) =>
           s.category === categoryId ? { ...s, category: null } : s,
@@ -882,7 +890,7 @@ export const useEditorStore = create((set, get) => {
 
     // Auto-number all seats
     autoNumberSeats: () =>
-      set((state) => {
+      trackedSet((state) => {
         const updatedSeats = assignRowNumbers(state.seats, 0);
         // Find the highest row index used
         let maxRowIndex = -1;
@@ -913,7 +921,7 @@ export const useEditorStore = create((set, get) => {
     clearSelection: () => set({ selectedSeatIds: [], selectedTextIds: [] }),
 
     handleWorldClick: (worldPoint) =>
-      set((state) => {
+      trackedSet((state) => {
         if (state.activeTool === TOOL_SELECT) {
           return { selectedSeatIds: [], selectedTextIds: [] };
         }
@@ -948,7 +956,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     submitText: () =>
-      set((state) => {
+      trackedSet((state) => {
         const trimmedContent = state.textDraft.trim();
         if (trimmedContent && state.textPrompt) {
           return {
@@ -1070,7 +1078,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     rotateSelection: (angle) =>
-      set((state) => {
+      trackedSet((state) => {
         const selected = state.seats.filter((seat) =>
           state.selectedSeatIds.includes(seat.id),
         );
@@ -1122,7 +1130,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     moveSeats: (seatUpdates) =>
-      set((state) => {
+      trackedSet((state) => {
         if (!seatUpdates.length) return state;
 
         const seatById = new Map(state.seats.map((s) => [s.id, s]));
@@ -1184,7 +1192,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     moveTexts: (textUpdates) =>
-      set((state) => {
+      trackedSet((state) => {
         if (!textUpdates.length) return state;
         const updatesById = new Map(textUpdates.map((u) => [u.id, u]));
 
@@ -1198,7 +1206,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     eraseSeat: (seatId) =>
-      set((state) => {
+      trackedSet((state) => {
         if (state.activeTool !== TOOL_ERASER) return state;
 
         const selectedSet = new Set(state.selectedSeatIds);
@@ -1212,7 +1220,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     eraseText: (textId) =>
-      set((state) => {
+      trackedSet((state) => {
         if (state.activeTool !== TOOL_ERASER) return state;
 
         const selectedSet = new Set(state.selectedTextIds);
@@ -1226,7 +1234,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     commitRow: (rowPoints) =>
-      set((state) => {
+      trackedSet((state) => {
         if (state.activeTool !== TOOL_ROW || rowPoints.length === 0)
           return state;
 
@@ -1250,7 +1258,7 @@ export const useEditorStore = create((set, get) => {
       }),
 
     commitArc: (arcPoints) =>
-      set((state) => {
+      trackedSet((state) => {
         if (state.activeTool !== TOOL_ARC || arcPoints.length === 0)
           return state;
 
@@ -1333,7 +1341,7 @@ export const useEditorStore = create((set, get) => {
     },
 
     pasteClipboard: () =>
-      set((state) => {
+      trackedSet((state) => {
         const { clipboard } = state;
         if (!clipboard) return state;
 
@@ -1407,9 +1415,13 @@ export const useEditorStore = create((set, get) => {
         };
       }),
 
+    // ─── Undo / Redo ──────────────────────────────────────────────────────
+    undo: undoAction(set),
+    redo: redoAction(set),
+
     clearLayout: () => {
       localStorage.removeItem(STORAGE_KEY);
-      set({
+      trackedSet({
         seats: [],
         texts: [],
         selectedSeatIds: [],

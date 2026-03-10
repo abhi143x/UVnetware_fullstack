@@ -4,37 +4,37 @@ import React, {
   useState,
   useEffect,
   useCallback,
-} from 'react'
-import CanvasStage from './canvas/CanvasStage'
-import Minimap from './canvas/Minimap'
-import { useCanvasEvents } from './hooks/useCanvasEvents'
-import { useCursor } from './hooks/useCursor'
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
-import { usePreviewElements } from './hooks/usePreviewElements'
-import { useRenderedElements } from './hooks/useRenderedElements'
-import { useToolHandler } from './hooks/useToolHandler'
-import { useViewport } from './hooks/useViewport'
-import { useEditorStore } from './store/editorStore'
-import { TOOL_ERASER } from './constants/tools'
+} from "react";
+import CanvasStage from "./canvas/CanvasStage";
+import Minimap from "./canvas/Minimap";
+import { useCanvasEvents } from "./hooks/useCanvasEvents";
+import { useCursor } from "./hooks/useCursor";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { usePreviewElements } from "./hooks/usePreviewElements";
+import { useRenderedElements } from "./hooks/useRenderedElements";
+import { useToolHandler } from "./hooks/useToolHandler";
+import { useViewport } from "./hooks/useViewport";
+import { useEditorStore } from "./store/editorStore";
+import { TOOL_ERASER } from "./constants/tools";
 
 function EditorCanvas({ centerOnSeatsRef }) {
-  const containerRef = useRef(null)
-  const [hoveredSeatId, setHoveredSeatId] = useState(null)
-  const [hoveredTextId, setHoveredTextId] = useState(null)
+  const containerRef = useRef(null);
+  const [hoveredSeatId, setHoveredSeatId] = useState(null);
+  const [hoveredTextId, setHoveredTextId] = useState(null);
 
   const setEraseHover = useCallback((seatId, textId) => {
-    setHoveredSeatId(seatId)
-    setHoveredTextId(textId)
-  }, [])
+    setHoveredSeatId(seatId);
+    setHoveredTextId(textId);
+  }, []);
 
   // Store state
-  const activeTool = useEditorStore((state) => state.activeTool)
-  const seats = useEditorStore((state) => state.seats)
-  const texts = useEditorStore((state) => state.texts)
-  const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds)
-  const selectedTextIds = useEditorStore((state) => state.selectedTextIds)
-  const categories = useEditorStore((state) => state.categories)
-  const nextRowIndex = useEditorStore((state) => state.nextRowIndex)
+  const activeTool = useEditorStore((state) => state.activeTool);
+  const seats = useEditorStore((state) => state.seats);
+  const texts = useEditorStore((state) => state.texts);
+  const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
+  const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
+  const categories = useEditorStore((state) => state.categories);
+  const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
 
   // Store actions
   const {
@@ -53,69 +53,79 @@ function EditorCanvas({ centerOnSeatsRef }) {
     clearSelection,
     copySelection,
     pasteClipboard,
+    undo,
+    redo,
   } = useEditorStore();
 
-
-
-  const storeActions = useMemo(() => ({
-    handleWorldClick,
-    selectSeat,
-    selectText,
-    smartRowSelect,
-    moveSeats,
-    moveTexts,
-    marqueeSelect,
-    eraseSeat,
-    eraseText,
-    commitRow,
-    commitArc,
-    rotateSelection,
-    clearSelection,
-    setEraseHover,
-  }), [
-    handleWorldClick,
-    selectSeat,
-    selectText,
-    smartRowSelect,
-    moveSeats,
-    moveTexts,
-    marqueeSelect,
-    eraseSeat,
-    eraseText,
-    commitRow,
-    commitArc,
-    rotateSelection,
-    clearSelection,
-    setEraseHover,
-  ])
+  const storeActions = useMemo(
+    () => ({
+      handleWorldClick,
+      selectSeat,
+      selectText,
+      smartRowSelect,
+      moveSeats,
+      moveTexts,
+      marqueeSelect,
+      eraseSeat,
+      eraseText,
+      commitRow,
+      commitArc,
+      rotateSelection,
+      clearSelection,
+      setEraseHover,
+    }),
+    [
+      handleWorldClick,
+      selectSeat,
+      selectText,
+      smartRowSelect,
+      moveSeats,
+      moveTexts,
+      marqueeSelect,
+      eraseSeat,
+      eraseText,
+      commitRow,
+      commitArc,
+      rotateSelection,
+      clearSelection,
+      setEraseHover,
+    ],
+  );
 
   useEffect(() => {
     if (activeTool !== TOOL_ERASER) {
-      setHoveredSeatId(null)
-      setHoveredTextId(null)
+      setHoveredSeatId(null);
+      setHoveredTextId(null);
     }
-  }, [activeTool])
+  }, [activeTool]);
 
   // Hooks
-  const { viewport, camera, setCamera, zoomToPoint, panCamera, getWorldPointFromStage, centerOnSeats } =
-    useViewport(containerRef)
+  const {
+    viewport,
+    camera,
+    setCamera,
+    zoomToPoint,
+    panCamera,
+    getWorldPointFromStage,
+    centerOnSeats,
+  } = useViewport(containerRef);
 
   // Expose centerOnSeats via ref so Editor.jsx can call it
   useEffect(() => {
     if (centerOnSeatsRef) {
-      centerOnSeatsRef.current = centerOnSeats
+      centerOnSeatsRef.current = centerOnSeats;
     }
-  }, [centerOnSeats, centerOnSeatsRef])
+  }, [centerOnSeats, centerOnSeatsRef]);
 
   // Auto-center on template load (when templateVersion changes)
-  const templateVersion = useEditorStore((state) => state.templateVersion)
+  const templateVersion = useEditorStore((state) => state.templateVersion);
   useEffect(() => {
     if (templateVersion > 0 && seats.length > 0) {
       // Delay to let viewport sizing settle after navigation
-      const timer = setTimeout(() => centerOnSeats(seats), 120)
-      return () => clearTimeout(timer)
+      const timer = setTimeout(() => centerOnSeats(seats), 120);
+      return () => clearTimeout(timer);
     }
-  }, [templateVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [templateVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const {
     toolSession,
@@ -123,7 +133,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseMove,
     handleMouseUp,
     handleClick,
-  } = useToolHandler(storeActions)
+  } = useToolHandler(storeActions);
   const { renderedSeats, renderedTexts } = useRenderedElements(
     seats,
     texts,
@@ -133,16 +143,21 @@ function EditorCanvas({ centerOnSeatsRef }) {
     hoveredSeatId,
     hoveredTextId,
     categories,
-  )
-  const cursor = useCursor(activeTool, false, false)
+  );
+  const cursor = useCursor(activeTool, false, false);
   const { marqueeRect, rowPreviewPoints, arcPreviewPoints } =
-    usePreviewElements(toolSession, activeTool)
+    usePreviewElements(toolSession, activeTool);
 
   // Keyboard shortcuts
   useKeyboardShortcuts(
     () => storeActions.clearSelection(),
     () => {}, // escape handler
-    { onCopy: copySelection, onPaste: pasteClipboard },
+    {
+      onCopy: copySelection,
+      onPaste: pasteClipboard,
+      onUndo: undo,
+      onRedo: redo,
+    },
   );
 
   // Context for tool handlers
@@ -154,7 +169,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
     selectedTextIds,
     seatsById: new Map(seats.map((seat) => [seat.id, seat])),
     textsById: new Map(texts.map((text) => [text.id, text])),
-  }
+  };
 
   const {
     handleMouseDown: handleStageMouseDown,
@@ -173,27 +188,27 @@ function EditorCanvas({ centerOnSeatsRef }) {
     onToolMouseMove: (e, wp) => handleMouseMove(e, wp, context),
     onToolMouseUp: (e, wp) => handleMouseUp(e, wp, context),
     onToolClick: (e, wp) => handleClick(e, wp, context),
-  })
+  });
 
   const handleContainerMouseLeave = useCallback(
     (event) => {
-      setEraseHover(null, null)
-      handleStageMouseLeave(event)
+      setEraseHover(null, null);
+      handleStageMouseLeave(event);
     },
     [setEraseHover, handleStageMouseLeave],
-  )
+  );
 
   return (
     <section
       ref={containerRef}
       className={`h-full w-full bg-[#0e1319] select-none relative ${
-        cursor === 'grabbing'
-          ? 'cursor-grabbing'
-          : cursor === 'crosshair'
-          ? 'cursor-crosshair'
-          : cursor === 'text'
-          ? 'cursor-text'
-          : 'cursor-default'
+        cursor === "grabbing"
+          ? "cursor-grabbing"
+          : cursor === "crosshair"
+            ? "cursor-crosshair"
+            : cursor === "text"
+              ? "cursor-text"
+              : "cursor-default"
       }`}
       onMouseDown={handleStageMouseDown}
       onMouseMove={handleStageMouseMove}
@@ -221,7 +236,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
         setCamera={setCamera}
       />
     </section>
-  )
+  );
 }
 
 export default EditorCanvas;
