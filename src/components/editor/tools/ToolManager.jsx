@@ -1,23 +1,9 @@
-import { SelectTool } from './selectTool'
-import { SeatTool } from './seatTool'
-import { RowTool } from './rowTool'
-import { ArcTool } from './arcTool'
-import { EraserTool } from './eraserTool'
-import { RotateTool } from "./rotateTool"
-import { TextTool } from './textTool'
-import { TOOL_SELECT, TOOL_SEAT, TOOL_ROW, TOOL_ARC, TOOL_ROTATE, TOOL_ERASER, TOOL_TEXT } from '../constants/tools'
+import { TOOL_SELECT } from '../constants/tools'
+import { buildToolRegistry } from './toolRegistry'
 
 export class ToolManager {
   constructor(storeActions) {
-    this.tools = {
-      [TOOL_SELECT]: new SelectTool(storeActions),
-      [TOOL_SEAT]: new SeatTool(storeActions),
-      [TOOL_ROW]: new RowTool(storeActions),
-      [TOOL_ARC]: new ArcTool(storeActions),
-      [TOOL_ROTATE]: new RotateTool(storeActions),
-      [TOOL_ERASER]: new EraserTool(storeActions),
-      [TOOL_TEXT]: new TextTool(storeActions),
-    }
+    this.tools = buildToolRegistry(storeActions)
   }
 
   getTool(toolId) {
