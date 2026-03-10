@@ -37,25 +37,23 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
 
   // Store actions
-  const {
-    handleWorldClick,
-    selectSeat,
-    selectText,
-    smartRowSelect,
-    moveSeats,
-    moveTexts,
-    marqueeSelect,
-    eraseSeat,
-    eraseText,
-    commitRow,
-    commitArc,
-    rotateSelection,
-    clearSelection,
-    copySelection,
-    pasteClipboard,
-    undo,
-    redo,
-  } = useEditorStore();
+  const handleWorldClick = useEditorStore((state) => state.handleWorldClick);
+  const selectSeat = useEditorStore((state) => state.selectSeat);
+  const selectText = useEditorStore((state) => state.selectText);
+  const smartRowSelect = useEditorStore((state) => state.smartRowSelect);
+  const moveSeats = useEditorStore((state) => state.moveSeats);
+  const moveTexts = useEditorStore((state) => state.moveTexts);
+  const marqueeSelect = useEditorStore((state) => state.marqueeSelect);
+  const eraseSeat = useEditorStore((state) => state.eraseSeat);
+  const eraseText = useEditorStore((state) => state.eraseText);
+  const commitRow = useEditorStore((state) => state.commitRow);
+  const commitArc = useEditorStore((state) => state.commitArc);
+  const rotateSelection = useEditorStore((state) => state.rotateSelection);
+  const clearSelection = useEditorStore((state) => state.clearSelection);
+  const copySelection = useEditorStore((state) => state.copySelection);
+  const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
+  const undo = useEditorStore((state) => state.undo);
+  const redo = useEditorStore((state) => state.redo);
 
   const storeActions = useMemo(
     () => ({

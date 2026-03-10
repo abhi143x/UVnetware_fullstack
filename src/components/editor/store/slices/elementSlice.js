@@ -157,7 +157,8 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 if (state.activeTool === TOOL_SEAT) {
                     if (isOverlapping(worldPoint.x, worldPoint.y, state.seats))
                         return state;
-                    return { seats: [...state.seats, generateSeat(worldPoint)] };
+                    const newSeat = generateSeat(worldPoint);
+                    return { seats: [...state.seats, newSeat] };
                 }
                 return state;
             }),
@@ -302,9 +303,13 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 const rowLetter = getRowLetter(currentRowIndex);
 
                 const seatsWithOptions = generateRowSeats(rowPoints, rowLetter);
+                const nextSeats = appendNonOverlappingSeats(
+                    state.seats,
+                    seatsWithOptions,
+                );
 
                 return {
-                    seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),
+                    seats: nextSeats,
                     nextRowIndex: currentRowIndex + 1,
                 };
             }),
@@ -318,9 +323,13 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 const rowLetter = getRowLetter(currentRowIndex);
 
                 const seatsWithOptions = generateArcSeats(arcPoints, rowLetter);
+                const nextSeats = appendNonOverlappingSeats(
+                    state.seats,
+                    seatsWithOptions,
+                );
 
                 return {
-                    seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),
+                    seats: nextSeats,
                     nextRowIndex: currentRowIndex + 1,
                 };
             }),

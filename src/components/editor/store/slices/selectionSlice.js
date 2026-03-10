@@ -23,38 +23,49 @@ export function createSelectionSlice(set, get, { trackedSet }) {
         pasteCount: 0,
 
         // Actions
-        clearSelection: () => set({ selectedSeatIds: [], selectedTextIds: [] }),
+        clearSelection: () =>
+            set(() => {
+                return { selectedSeatIds: [], selectedTextIds: [] };
+            }),
 
         selectSeat: (seatId, isMulti) =>
             set((state) => {
                 if (state.activeTool !== TOOL_SELECT) return state;
 
-                if (!isMulti) return { selectedSeatIds: [seatId] };
+                if (!isMulti) {
+                    return { selectedSeatIds: [seatId] };
+                }
 
                 if (state.selectedSeatIds.includes(seatId)) {
+                    const selectedSeatIds = state.selectedSeatIds.filter(
+                        (id) => id !== seatId,
+                    );
                     return {
-                        selectedSeatIds: state.selectedSeatIds.filter(
-                            (id) => id !== seatId,
-                        ),
+                        selectedSeatIds,
                     };
                 }
-                return { selectedSeatIds: [...state.selectedSeatIds, seatId] };
+                const selectedSeatIds = [...state.selectedSeatIds, seatId];
+                return { selectedSeatIds };
             }),
 
         selectText: (textId, shiftKey) =>
             set((state) => {
                 if (state.activeTool !== TOOL_SELECT) return state;
 
-                if (!shiftKey) return { selectedTextIds: [textId] };
+                if (!shiftKey) {
+                    return { selectedTextIds: [textId] };
+                }
 
                 if (state.selectedTextIds.includes(textId)) {
+                    const selectedTextIds = state.selectedTextIds.filter(
+                        (id) => id !== textId,
+                    );
                     return {
-                        selectedTextIds: state.selectedTextIds.filter(
-                            (id) => id !== textId,
-                        ),
+                        selectedTextIds,
                     };
                 }
-                return { selectedTextIds: [...state.selectedTextIds, textId] };
+                const selectedTextIds = [...state.selectedTextIds, textId];
+                return { selectedTextIds };
             }),
 
         smartRowSelect: (seatId, event) =>
@@ -117,10 +128,11 @@ export function createSelectionSlice(set, get, { trackedSet }) {
                 const rowSeatIds = rowSeats.map((s) => s.id);
 
                 if (event?.evt?.shiftKey || event?.shiftKey) {
+                    const selectedSeatIds = [
+                        ...new Set([...state.selectedSeatIds, ...rowSeatIds]),
+                    ];
                     return {
-                        selectedSeatIds: [
-                            ...new Set([...state.selectedSeatIds, ...rowSeatIds]),
-                        ],
+                        selectedSeatIds,
                     };
                 }
                 return { selectedSeatIds: rowSeatIds };
