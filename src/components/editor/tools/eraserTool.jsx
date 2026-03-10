@@ -69,18 +69,22 @@ export class EraserTool {
 
   findTextAtPoint(point, texts) {
     return texts.find((text) => {
-      const scale = text.scale || 1;
       const fontSize = text.fontSize || 20;
-      const width = (text.content?.length || 0) * fontSize * 0.55 * scale;
-      const height = fontSize * scale;
+      const width = (text.content?.length || 0) * fontSize * 0.55;
+      const height = fontSize;
+      const radians = ((text.rotate ?? 0) * Math.PI) / 180;
+      const dx = point.x - text.x;
+      const dy = point.y - text.y;
+      const localX = dx * Math.cos(radians) + dy * Math.sin(radians);
+      const localY = -dx * Math.sin(radians) + dy * Math.cos(radians);
       const halfWidth = width / 2;
       const halfHeight = height / 2;
 
       return (
-        point.x >= text.x - halfWidth &&
-        point.x <= text.x + halfWidth &&
-        point.y >= text.y - halfHeight &&
-        point.y <= text.y + halfHeight
+        localX >= -halfWidth &&
+        localX <= halfWidth &&
+        localY >= -halfHeight &&
+        localY <= halfHeight
       );
     });
   }
