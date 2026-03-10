@@ -3,12 +3,12 @@ export class TextTool {
     this.handleWorldClick = storeActions.handleWorldClick
   }
 
-  handleMouseDown(event, worldPoint, context) {
+  handleMouseDown(_event, _worldPoint, _context) {
     // Place text on click
     return null
   }
 
-  handleMouseMove(event, worldPoint, context, session) {
+  handleMouseMove(_event, worldPoint, _context, _session) {
     // Preview text placement
     return {
       type: 'preview',
@@ -16,13 +16,13 @@ export class TextTool {
     }
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, worldPoint, _context, _session) {
     // Place text
     this.handleWorldClick(worldPoint)
     return null
   }
 
-  handleClick(event, worldPoint, context) {
+  handleClick(_event, worldPoint, _context) {
     this.handleWorldClick(worldPoint)
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useEditorStore, VENUE_TEMPLATES } from './store/editorStore'
 
 export default function TemplatesPanel({ onTemplateLoad }) {

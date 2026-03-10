@@ -29,7 +29,6 @@ function PropertiesPanel() {
     : null;
 
   const isMultipleSeats = selectedSeatIds.length > 1;
-  const isMultipleTexts = selectedTextIds.length > 1;
   const hasSeatsSelected = selectedSeatIds.length > 0;
 
   const selectedSeats = hasSeatsSelected
@@ -114,7 +113,7 @@ function PropertiesPanel() {
   };
 
   return (
-    <aside className="w-[300px] shrink-0 bg-[#11161c] flex flex-col text-sm text-[#c9d6ea] h-full overflow-y-auto">
+    <aside className="w-75 shrink-0 bg-[#11161c] flex flex-col text-sm text-[#c9d6ea] h-full overflow-y-auto">
       <div className="p-5 flex flex-col gap-8">
         {hasSeatsSelected && (
           <>
@@ -565,7 +564,7 @@ function PropertiesPanel() {
                   >
                     B
                   </button>
-                  <div className="w-[1px] bg-white/10" />
+                  <div className="w-px bg-white/10" />
                   <button
                     onClick={() =>
                       updateText(selectedText.id, {

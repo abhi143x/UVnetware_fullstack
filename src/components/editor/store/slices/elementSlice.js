@@ -17,7 +17,9 @@ import { getRowLetter } from "../../utils/seatNumbering";
 import {
     DEFAULT_SEAT_RADIUS,
     createId,
-    createSeat,
+    generateSeat,
+} from "../../services/seatService";
+import {
     isOverlapping,
     buildCollisionIndex,
     addSeatToCollisionIndex,
@@ -25,7 +27,10 @@ import {
     getMaxSeatRadius,
     appendNonOverlappingSeats,
     COLLISION_INDEX_CELL_SIZE,
-} from "./seatHelpers";
+    deriveNextRowIndexFromSeats,
+} from "../../services/layoutService";
+import { generateRowSeats } from "../../services/rowService";
+import { generateArcSeats } from "../../services/arcService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 const DEFAULT_CATEGORIES = [
@@ -114,29 +119,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         autoNumberSeats: () =>
             trackedSet((state) => {
                 const updatedSeats = assignRowNumbers(state.seats, 0);
-                // Find the highest row index used
-                let maxRowIndex = -1;
-                updatedSeats.forEach((seat) => {
-                    if (seat.row) {
-                        // Convert row letter back to index
-                        const rowChar = seat.row[0];
-                        const rowIndex = rowChar.charCodeAt(0) - 65;
-                        if (seat.row.length > 1) {
-                            // Handle AA, AB, etc.
-                            const secondChar = seat.row[1];
-                            const secondIndex = secondChar.charCodeAt(0) - 65;
-                            maxRowIndex = Math.max(
-                                maxRowIndex,
-                                26 + rowIndex * 26 + secondIndex,
-                            );
-                        } else {
-                            maxRowIndex = Math.max(maxRowIndex, rowIndex);
-                        }
-                    }
-                });
                 return {
                     seats: updatedSeats,
-                    nextRowIndex: maxRowIndex + 1,
+                    nextRowIndex: deriveNextRowIndexFromSeats(updatedSeats),
                 };
             }),
 
@@ -172,7 +157,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 if (state.activeTool === TOOL_SEAT) {
                     if (isOverlapping(worldPoint.x, worldPoint.y, state.seats))
                         return state;
-                    return { seats: [...state.seats, createSeat(worldPoint)] };
+                    return { seats: [...state.seats, generateSeat(worldPoint)] };
                 }
                 return state;
             }),
@@ -316,15 +301,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 const currentRowIndex = state.nextRowIndex;
                 const rowLetter = getRowLetter(currentRowIndex);
 
-                // Create seat options for each point in the row
-                const seatsWithOptions = rowPoints.map((point, index) => ({
-                    ...point,
-                    options: {
-                        row: rowLetter,
-                        number: index + 1,
-                        label: generateSeatLabel(rowLetter, index + 1),
-                    },
-                }));
+                const seatsWithOptions = generateRowSeats(rowPoints, rowLetter);
 
                 return {
                     seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),
@@ -340,15 +317,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 const currentRowIndex = state.nextRowIndex;
                 const rowLetter = getRowLetter(currentRowIndex);
 
-                // Create seat options for each point in the arc
-                const seatsWithOptions = arcPoints.map((point, index) => ({
-                    ...point,
-                    options: {
-                        row: rowLetter,
-                        number: index + 1,
-                        label: generateSeatLabel(rowLetter, index + 1),
-                    },
-                }));
+                const seatsWithOptions = generateArcSeats(arcPoints, rowLetter);
 
                 return {
                     seats: appendNonOverlappingSeats(state.seats, seatsWithOptions),

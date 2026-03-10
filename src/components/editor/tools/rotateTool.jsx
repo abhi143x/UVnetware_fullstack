@@ -4,7 +4,7 @@ export class RotateTool {
     this.storeActions = storeActions
   }
 
-  handleMouseDown(event, worldPoint, context) {
+  handleMouseDown(_event, worldPoint, _context) {
 
     return {
       type: 'rotate_start',
@@ -14,7 +14,7 @@ export class RotateTool {
 
   }
 
-  handleMouseMove(event, worldPoint, context, session) {
+  handleMouseMove(_event, worldPoint, _context, session) {
 
     if (!session || session.type !== 'rotate_start') return session
 
@@ -37,10 +37,10 @@ export class RotateTool {
     }
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, _worldPoint, _context, _session) {
     return null
   }
 
-  handleClick(event, worldPoint, context) {}
+  handleClick(_event, _worldPoint, _context) {}
 
 }

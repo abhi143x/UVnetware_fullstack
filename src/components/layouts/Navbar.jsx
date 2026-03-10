@@ -52,14 +52,20 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!currentUser) {
-      setProfileOpen(false);
-      setIsEditingName(false);
-      setIsEditingPhoto(false);
-      return;
+      const timer = setTimeout(() => {
+        setProfileOpen(false);
+        setIsEditingName(false);
+        setIsEditingPhoto(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
-    setDraftName(currentUser.username || currentUser.name || "");
-    setDraftPhoto(currentUser.photo || "");
+    const timer = setTimeout(() => {
+      setDraftName(currentUser.username || currentUser.name || "");
+      setDraftPhoto(currentUser.photo || "");
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [currentUser]);
 
   const handleLogout = () => {
@@ -162,13 +168,13 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
+    <nav className="sticky top-0 z-50 w-full bg-linear-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
       <div className="w-full px-8 sm:px-12 py-2.5 sm:py-3 flex items-center gap-8">
         {/* SECTION 1: Company Name */}
 
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="text-3xl font-black bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
+            <div className="text-3xl font-black bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
               UV<span className="text-white">netware</span>
             </div>
           </Link>
@@ -187,7 +193,7 @@ export default function Navbar() {
                   className={`px-5 py-2 text-white text-base font-bold rounded-lg transition-all duration-300 shadow-lg flex items-center gap-2 group ${
                     isActive
                       ? "bg-blue-600 shadow-blue-500/60"
-                      : "bg-gradient-to-r hover:from-blue-500 hover:to-blue-400 hover:shadow-blue-500/50 hover:translate-x-1"
+                      : "bg-linear-to-r hover:from-blue-500 hover:to-blue-400 hover:shadow-blue-500/50 hover:translate-x-1"
                   }`}
                 >
                   {item.name}
@@ -207,7 +213,7 @@ export default function Navbar() {
               >
                 <span>{item.name}</span>
                 <span
-                  className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-300 rounded-full ${
+                  className={`absolute bottom-0 left-0 h-0.5 bg-linear-to-r from-blue-500 to-blue-400 transition-all duration-300 rounded-full ${
                     isActive ? "w-full" : "w-0 group-hover:w-full"
                   }`}
                 ></span>
@@ -218,7 +224,7 @@ export default function Navbar() {
 
         {/* SECTION 3: Login/Signup */}
 
-        <div className="hidden md:flex flex-shrink-0 items-center gap-4">
+        <div className="hidden md:flex shrink-0 items-center gap-4">
           {currentUser ? (
             <>
               <div className="relative" ref={profileMenuRef}>
@@ -405,7 +411,7 @@ export default function Navbar() {
         </div>
 
         {/* MOBILE MENU BUTTON */}
-        <div className="md:hidden flex-shrink-0 ml-auto">
+        <div className="md:hidden shrink-0 ml-auto">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="p-2 rounded-lg hover:bg-blue-500/20 transition-colors duration-300 text-white"
@@ -436,7 +442,7 @@ export default function Navbar() {
                     className={`flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all duration-300 font-bold shadow-lg text-lg ${
                       isActive
                         ? "bg-blue-600"
-                        : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                        : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
                     }`}
                   >
                     {item.name}
@@ -503,7 +509,7 @@ export default function Navbar() {
                   <Link
                     to="/signup"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-600 rounded-lg border border-blue-600 hover:bg-gradient-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white hover:border-transparent transition-all duration-300 font-bold text-lg"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-600 rounded-lg border border-blue-600 hover:bg-linear-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white hover:border-transparent transition-all duration-300 font-bold text-lg"
                   >
                     Signup
                   </Link>

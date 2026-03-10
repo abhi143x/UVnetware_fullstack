@@ -213,7 +213,7 @@ export class SelectTool {
   }
 
   startDrag(
-    event,
+    _event,
     worldPoint,
     seatsById,
     textsById,
@@ -268,7 +268,7 @@ export class SelectTool {
     return session;
   }
 
-  commitDrag(session) {
+  commitDrag(_session) {
     // Final commit if needed
   }
 }

@@ -4,7 +4,7 @@ import { PAN_CLICK_TOLERANCE } from '../utils/mathUtils'
 export function useCanvasEvents({
   containerRef,
   camera,
-  activeTool,
+  _activeTool,
   getWorldPointFromStage,
   panCamera,
   zoomToPoint,
@@ -44,7 +44,6 @@ export function useCanvasEvents({
   }, [getCanvasRelativePoint, zoomToPoint, panCamera, camera.scale])
 
   const handleMouseDown = useCallback((event) => {
-    const screenPoint = getCanvasRelativePoint(event.clientX, event.clientY)
     const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
     if (!worldPoint) return
 
@@ -65,7 +64,7 @@ export function useCanvasEvents({
 
     // Delegate to tool handler
     onToolMouseDown(event, worldPoint)
-  }, [getCanvasRelativePoint, getWorldPointFromStage, onToolMouseDown])
+  }, [getWorldPointFromStage, onToolMouseDown])
 
   const handleMouseMove = useCallback((event) => {
     if (panSessionRef.current) {

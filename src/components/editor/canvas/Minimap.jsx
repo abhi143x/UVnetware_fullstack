@@ -33,16 +33,11 @@ function MinimapInner({ seats, camera, viewport, setCamera }) {
     const offsetX = (MINIMAP_WIDTH - worldW * mapScale) / 2
     const offsetY = (MINIMAP_HEIGHT - worldH * mapScale) / 2
 
-    // Stable refs for drag handler
-    const stableRef = useRef({ offsetX, offsetY, mapScale, minX, minY })
-    stableRef.current = { offsetX, offsetY, mapScale, minX, minY }
-
     const panToMinimapPoint = useCallback((clientX, clientY) => {
         const rect = minimapRef.current?.getBoundingClientRect()
         if (!rect) return
-        const { offsetX: ox, offsetY: oy, mapScale: ms, minX: mx, minY: my } = stableRef.current
-        const wx = (clientX - rect.left - ox) / ms + mx
-        const wy = (clientY - rect.top - oy) / ms + my
+        const wx = (clientX - rect.left - offsetX) / mapScale + minX
+        const wy = (clientY - rect.top - offsetY) / mapScale + minY
         setCamera(prev => ({
             ...prev,
             position: {
@@ -50,7 +45,7 @@ function MinimapInner({ seats, camera, viewport, setCamera }) {
                 y: viewport.height / 2 - wy * prev.scale,
             },
         }))
-    }, [viewport.width, viewport.height, setCamera])
+    }, [minX, minY, offsetX, offsetY, mapScale, viewport.width, viewport.height, setCamera])
 
     const handleMouseDown = useCallback((e) => {
         e.stopPropagation()
@@ -127,12 +122,7 @@ function MinimapInner({ seats, camera, viewport, setCamera }) {
     )
 }
 
-// Error-safe wrapper — if Minimap crashes, render nothing rather than breaking the canvas
 export default function Minimap(props) {
     if (!props.seats || props.seats.length === 0) return null
-    try {
-        return <MinimapInner {...props} />
-    } catch {
-        return null
-    }
+    return <MinimapInner {...props} />
 }

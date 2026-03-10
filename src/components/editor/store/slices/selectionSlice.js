@@ -4,11 +4,13 @@
 import { TOOL_SELECT } from "../../constants/tools";
 import {
     DEFAULT_SEAT_RADIUS,
+    createId,
+} from "../../services/seatService";
+import {
     SMART_ROW_ANGLE_TOLERANCE,
     SMART_ROW_MIN_DISTANCE_SQUARED,
-    createId,
-    isOverlapping,
-} from "./seatHelpers";
+} from "../../services/rowService";
+import { isOverlapping } from "../../services/layoutService";
 import { generateSeatLabel } from "../../utils/seatNumbering";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
 

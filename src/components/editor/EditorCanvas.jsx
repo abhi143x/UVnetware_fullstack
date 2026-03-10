@@ -92,13 +92,6 @@ function EditorCanvas({ centerOnSeatsRef }) {
     ],
   );
 
-  useEffect(() => {
-    if (activeTool !== TOOL_ERASER) {
-      setHoveredSeatId(null);
-      setHoveredTextId(null);
-    }
-  }, [activeTool]);
-
   // Hooks
   const {
     viewport,
@@ -140,8 +133,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
     selectedSeatIds,
     selectedTextIds,
     activeTool,
-    hoveredSeatId,
-    hoveredTextId,
+    activeTool === TOOL_ERASER ? hoveredSeatId : null,
+    activeTool === TOOL_ERASER ? hoveredTextId : null,
     categories,
   );
   const cursor = useCursor(activeTool, false, false);

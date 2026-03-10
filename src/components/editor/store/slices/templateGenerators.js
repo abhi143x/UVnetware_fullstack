@@ -1,8 +1,8 @@
 // ─── Template Generators ──────────────────────────────────────────────────────
-// Venue template data generators. Depends only on seatHelpers and seatNumbering.
+// Venue template data generators. Depends only on services and seatNumbering.
 
 import { getRowLetter, generateSeatLabel } from "../../utils/seatNumbering";
-import { createId, createSeat } from "./seatHelpers";
+import { createId, createSeat } from "../../services/seatService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 export function generateSmallTheater() {

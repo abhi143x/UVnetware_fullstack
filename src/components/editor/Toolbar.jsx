@@ -8,7 +8,7 @@ import {
   TOOL_ROTATE,
 } from './constants/tools'
 
-export const TOOLS = [
+const TOOLS = [
   { id: TOOL_SELECT, label: 'Select', icon: '🎯' },
   { id: TOOL_SEAT, label: 'Seat', icon: '💺' },
   { id: TOOL_ROW, label: 'Row', icon: '📏' },

@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
-import { buildRowPoints, buildArcPoints, PREVIEW_SEAT_RADIUS } from '../utils/mathUtils'
 
-export function usePreviewElements(toolSession, activeTool) {
+export function usePreviewElements(toolSession, _activeTool) {
   const marqueeRect = useMemo(() => {
     if (toolSession?.type === 'marquee') {
       const { startPoint, endPoint } = toolSession

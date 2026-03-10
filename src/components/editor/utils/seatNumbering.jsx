@@ -37,7 +37,7 @@ export function detectRowsFromSeats(seats, tolerance = 5) {
   })
   
   // Sort each row by X coordinate
-  rowMap.forEach((rowSeats, yBucket) => {
+  rowMap.forEach((rowSeats, _yBucket) => {
     rowSeats.sort((a, b) => a.x - b.x)
   })
   
@@ -56,7 +56,7 @@ export function assignRowNumbers(seats, startRowIndex = 0) {
   let currentRowIndex = startRowIndex
   const updatedSeats = seats.map(seat => {
     // Find which row this seat belongs to
-    for (const [yBucket, rowSeats] of sortedRows) {
+    for (const [_yBucket, rowSeats] of sortedRows) {
       const seatIndex = rowSeats.findIndex(s => s.id === seat.id)
       if (seatIndex !== -1) {
         const rowLetter = getRowLetter(currentRowIndex)

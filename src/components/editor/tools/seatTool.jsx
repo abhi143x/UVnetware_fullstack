@@ -3,12 +3,12 @@ export class SeatTool {
     this.handleWorldClick = storeActions.handleWorldClick
   }
 
-  handleMouseDown(event, worldPoint, context) {
+  handleMouseDown(_event, _worldPoint, _context) {
     // For seat tool, we place seats on click
     return null
   }
 
-  handleMouseMove(event, worldPoint, context, session) {
+  handleMouseMove(_event, worldPoint, _context, _session) {
     // Preview seat placement
     return {
       type: 'preview',
@@ -16,13 +16,13 @@ export class SeatTool {
     }
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, worldPoint, _context, _session) {
     // Place seat
     this.handleWorldClick(worldPoint)
     return null
   }
 
-  handleClick(event, worldPoint, context) {
+  handleClick(_event, worldPoint, _context) {
     this.handleWorldClick(worldPoint)
   }
 }

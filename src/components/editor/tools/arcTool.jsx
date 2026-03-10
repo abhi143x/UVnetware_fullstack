@@ -5,7 +5,7 @@ export class ArcTool {
     this.commitArc = storeActions.commitArc
   }
 
-  handleMouseDown(event, worldPoint, context) {
+  handleMouseDown(_event, worldPoint, _context) {
     return {
       type: 'arc_start',
       centerPoint: worldPoint,
@@ -16,7 +16,7 @@ export class ArcTool {
     }
   }
 
-  handleMouseMove(event, worldPoint, context, session) {
+  handleMouseMove(event, worldPoint, _context, session) {
     if (session.type === 'arc_start' || session.type === 'arc_drawing' || session.type === 'arc_rotate') {
       const centerPoint = session.centerPoint
       const dx = worldPoint.x - centerPoint.x
@@ -63,7 +63,7 @@ export class ArcTool {
     return session
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, _worldPoint, _context, session) {
     if(session.type === 'arcdrawing'){
       console.log(session)
     }
@@ -73,7 +73,7 @@ export class ArcTool {
     return null
   }
 
-  handleClick(event, worldPoint, context) {
+  handleClick(_event, _worldPoint, _context) {
     // Arc tool doesn't handle single clicks
   }
 }

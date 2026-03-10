@@ -18,12 +18,6 @@ function Editor() {
   const saveLayout = useEditorStore((state) => state.saveLayout);
   const clearLayout = useEditorStore((state) => state.clearLayout);
 
-  const textPrompt = useEditorStore((state) => state.textPrompt);
-  const textDraft = useEditorStore((state) => state.textDraft);
-  const setTextDraft = useEditorStore((state) => state.setTextDraft);
-  const setTextPrompt = useEditorStore((state) => state.setTextPrompt);
-  const submitText = useEditorStore((state) => state.submitText);
-
   function handleSave() {
     saveLayout();
     setSaveStatus("saved");
@@ -49,7 +43,7 @@ function Editor() {
   return (
     <section className="relative flex h-full w-full bg-[#0e1319] overflow-hidden">
       {/* ── Left Sidebar (Tools + Templates) ────────────────────────────── */}
-      <aside className="w-[260px] shrink-0 flex flex-col border-r border-white/5 bg-[#11161c] overflow-hidden">
+      <aside className="w-65 shrink-0 flex flex-col border-r border-white/5 bg-[#11161c] overflow-hidden">
         {/* Tools Section */}
         <div className="shrink-0 p-4 border-b border-white/5">
           <h3 className="text-[10px] font-semibold text-[#5a6a7e] uppercase tracking-wider mb-3 px-1">

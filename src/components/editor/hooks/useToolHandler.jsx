@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ToolManager } from "../tools/ToolManager";
 import { TOOL_ERASER } from "../constants/tools";
 
@@ -6,12 +6,10 @@ export function useToolHandler(storeActions) {
   const toolManagerRef = useRef(null);
   const [toolSession, setToolSession] = useState(null);
 
-  const toolManager = useMemo(() => {
-    if (!toolManagerRef.current) {
-      toolManagerRef.current = new ToolManager(storeActions);
-    }
-    return toolManagerRef.current;
-  }, [storeActions]);
+  if (toolManagerRef.current == null) {
+    toolManagerRef.current = new ToolManager(storeActions);
+  }
+  const toolManager = toolManagerRef.current;
 
   const handleMouseDown = useCallback(
     (event, worldPoint, context) => {

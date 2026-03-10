@@ -5,14 +5,14 @@ export class RowTool {
     this.commitRow = storeActions.commitRow
   }
 
-  handleMouseDown(event, worldPoint, context) {
+  handleMouseDown(_event, worldPoint, _context) {
     return {
       type: 'row_start',
       startPoint: worldPoint,
     }
   }
 
-  handleMouseMove(event, worldPoint, context, session) {
+  handleMouseMove(event, worldPoint, _context, session) {
     if (session.type === 'row_start' || session.type === 'row_preview') {
       const points = buildRowPoints(session.startPoint, worldPoint, event.shiftKey)
       return {
@@ -25,14 +25,14 @@ export class RowTool {
     return session
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, _worldPoint, _context, session) {
     if (session.type === 'row_preview') {
       this.commitRow(session.previewPoints)
     }
     return null
   }
 
-  handleClick(event, worldPoint, context) {
+  handleClick(_event, _worldPoint, _context) {
     // Row tool doesn't handle single clicks
   }
 }

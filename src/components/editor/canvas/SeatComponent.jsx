@@ -52,7 +52,6 @@ const SeatSVG = React.memo(({ seat, isSelected, isEraseHovered, onSeatClick, onS
   
   // Seat dimensions
   const seatSize = (seat.size || seat.radius * 2) || 24
-  const scale = seatSize / 24 // normalized to 24px base size
   const cx = seat.x
   const cy = seat.y
   const fontSize = Math.max(7, Math.min(seatSize * 0.32, 10))

@@ -50,11 +50,11 @@ export class EraserTool {
     return session;
   }
 
-  handleMouseUp(event, worldPoint, context, session) {
+  handleMouseUp(_event, _worldPoint, _context, _session) {
     return null;
   }
 
-  handleClick(event, worldPoint, context) {
+  handleClick(_event, _worldPoint, _context) {
     // Single click erasing handled in mouseDown
   }
 
