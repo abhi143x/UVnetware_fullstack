@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -82,12 +83,19 @@ export default function Footer() {
             >
               Team
             </a>
-            <a
-              href="#contact"
+            {/* <a
+              href="/contact"
               className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-300"
             >
               Contact
-            </a>
+            </a> */}
+
+            <Link
+              to="/contact"
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors duration-300"
+            >
+              Contact
+            </Link>
           </div>
         </div>
 
