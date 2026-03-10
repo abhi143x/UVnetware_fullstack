@@ -3,6 +3,7 @@
 
 import { getRowLetter, generateSeatLabel } from "../../utils/seatNumbering";
 import { createId, createSeat } from "./seatHelpers";
+import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 export function generateSmallTheater() {
     const seats = [];
@@ -29,7 +30,7 @@ export function generateSmallTheater() {
         }
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: startY - 40,
         content: "SCREEN",
@@ -74,7 +75,7 @@ export function generateMediumHall() {
         }
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: startY - 40,
         content: "STAGE",
@@ -131,7 +132,7 @@ export function generateLargeArena() {
         rowIndex++;
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: -30,
         content: "STAGE",
@@ -182,7 +183,7 @@ export function generateConferenceRoom() {
         }
         rowIndex += section.rows;
         texts.push({
-            id: createId("text"),
+            id: createId(ELEMENT_TYPES.TEXT),
             x: section.offsetX,
             y: startY - 30,
             content: section.label,
@@ -195,7 +196,7 @@ export function generateConferenceRoom() {
     });
 
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: -120,
         content: "PODIUM",
@@ -248,7 +249,7 @@ export function generateAmphitheater() {
         rowIndex++;
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: -30,
         content: "STAGE",
@@ -307,7 +308,7 @@ export function generateBus() {
         rowIndex++;
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: -40,
         content: "DRIVER",
@@ -370,7 +371,7 @@ export function generateTrain() {
             rowIndex++;
         }
         texts.push({
-            id: createId("text"),
+            id: createId(ELEMENT_TYPES.TEXT),
             x: 0,
             y: coachOffset - 25,
             content: `Coach ${coach + 1}`,
@@ -435,7 +436,7 @@ export function generateMovieTheatre() {
         rowIndex++;
     }
     texts.push({
-        id: createId("text"),
+        id: createId(ELEMENT_TYPES.TEXT),
         x: 0,
         y: -50,
         content: "SCREEN",

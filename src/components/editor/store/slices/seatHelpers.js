@@ -2,6 +2,7 @@
 // Pure functions — no Zustand dependency. Safe to import from any slice.
 
 import { generateSeatLabel } from "../../utils/seatNumbering";
+import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 export const DEFAULT_SEAT_RADIUS = 12;
 export const DEFAULT_SEAT_FILL = "#5fa7ff";
@@ -152,7 +153,7 @@ export function getMaxSeatRadius(seats) {
 
 export function createSeat(point, options = {}) {
     return {
-        id: createId("seat"),
+        id: createId(ELEMENT_TYPES.SEAT),
         x: point.x,
         y: point.y,
         radius: DEFAULT_SEAT_RADIUS, // Keep for backward compatibility (half of square size)

@@ -10,6 +10,7 @@ import {
     isOverlapping,
 } from "./seatHelpers";
 import { generateSeatLabel } from "../../utils/seatNumbering";
+import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 export function createSelectionSlice(set, get, { trackedSet }) {
     return {
@@ -194,7 +195,7 @@ export function createSelectionSlice(set, get, { trackedSet }) {
 
                 const newSeatIds = [];
                 const pastedSeats = clipboard.seats.map((s) => {
-                    const newId = createId("seat");
+                    const newId = createId(ELEMENT_TYPES.SEAT);
                     newSeatIds.push(newId);
                     const row = s.row || "A";
                     if (!pastedCountPerRow[row]) pastedCountPerRow[row] = 0;
@@ -213,7 +214,7 @@ export function createSelectionSlice(set, get, { trackedSet }) {
 
                 const newTextIds = [];
                 const pastedTexts = clipboard.texts.map((t) => {
-                    const newId = createId("text");
+                    const newId = createId(ELEMENT_TYPES.TEXT);
                     newTextIds.push(newId);
                     return {
                         ...t,

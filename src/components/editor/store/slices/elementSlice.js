@@ -26,6 +26,7 @@ import {
     appendNonOverlappingSeats,
     COLLISION_INDEX_CELL_SIZE,
 } from "./seatHelpers";
+import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 const DEFAULT_CATEGORIES = [
     { id: "vip", name: "VIP", color: "#ffd700", price: null },
@@ -148,7 +149,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 }
 
                 if (state.activeTool === TOOL_TEXT) {
-                    const newTextId = createId("text");
+                    const newTextId = createId(ELEMENT_TYPES.TEXT);
                     return {
                         texts: [
                             ...state.texts,
@@ -184,7 +185,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                         texts: [
                             ...state.texts,
                             {
-                                id: createId("text"),
+                                id: createId(ELEMENT_TYPES.TEXT),
                                 x: state.textPrompt.x,
                                 y: state.textPrompt.y,
                                 content: trimmedContent,

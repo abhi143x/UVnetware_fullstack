@@ -1,9 +1,11 @@
+import { ELEMENT_TYPES } from "../domain/elementTypes";
+
 export const TOOL_SELECT = 'select'
-export const TOOL_SEAT = 'seat'
-export const TOOL_ROW = 'row'
-export const TOOL_ARC = 'arc'
+export const TOOL_SEAT = ELEMENT_TYPES.SEAT
+export const TOOL_ROW = ELEMENT_TYPES.ROW
+export const TOOL_ARC = ELEMENT_TYPES.ARC
 export const TOOL_ERASER = 'eraser'
-export const TOOL_TEXT = 'text'
+export const TOOL_TEXT = ELEMENT_TYPES.TEXT
 export const TOOL_ROTATE = 'rotate'
 
 export const TOOLS = [
