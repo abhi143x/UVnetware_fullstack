@@ -365,5 +365,68 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
                 return { seats: rotatedSeats };
             }),
+
+        // Auto-align selected seats to grid and ensure consistent spacing
+        alignSelection: (gridSize = 40) => {
+            const state = get();
+            const selectedSeats = state.seats.filter(seat => 
+                state.selectedSeatIds.includes(seat.id)
+            );
+
+            if (selectedSeats.length === 0) return;
+
+            // Group seats by row for row-specific alignment
+            const seatsByRow = {};
+            selectedSeats.forEach(seat => {
+                const rowKey = seat.row || 'unassigned';
+                if (!seatsByRow[rowKey]) seatsByRow[rowKey] = [];
+                seatsByRow[rowKey].push(seat);
+            });
+
+            const alignedSeats = state.seats.map(seat => {
+                if (!state.selectedSeatIds.includes(seat.id)) return seat;
+
+                // If seat has a row, align with other seats in the same row
+                if (seat.row && seatsByRow[seat.row] && seatsByRow[seat.row].length > 1) {
+                    const rowSeats = seatsByRow[seat.row];
+                    
+                    // Sort by original x position to determine order
+                    rowSeats.sort((a, b) => a.x - b.x);
+                    const seatIndex = rowSeats.findIndex(s => s.id === seat.id);
+                    
+                    // Find the average y position of the row for straight alignment
+                    const avgY = rowSeats.reduce((sum, s) => sum + s.y, 0) / rowSeats.length;
+                    const alignedY = Math.round(avgY / gridSize) * gridSize;
+                    
+                    // Calculate ideal spacing (tighter for better appearance)
+                    const baseSpacing = gridSize * 1.2; // 48px spacing for nicer look
+                    
+                    // Find the leftmost seat position and align it to grid
+                    const leftmostX = Math.min(...rowSeats.map(s => s.x));
+                    const alignedLeftmost = Math.round(leftmostX / gridSize) * gridSize;
+                    
+                    // Position based on index with consistent spacing
+                    const targetX = alignedLeftmost + (seatIndex * baseSpacing);
+                    
+                    return {
+                        ...seat,
+                        x: targetX,
+                        y: alignedY,
+                    };
+                }
+
+                // For individual seats or unassigned rows, just snap to grid
+                const alignedX = Math.round(seat.x / gridSize) * gridSize;
+                const alignedY = Math.round(seat.y / gridSize) * gridSize;
+
+                return {
+                    ...seat,
+                    x: alignedX,
+                    y: alignedY,
+                };
+            });
+
+            trackedSet({ seats: alignedSeats });
+        },
     };
 }

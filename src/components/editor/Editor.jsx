@@ -17,6 +17,7 @@ function Editor() {
   const seatCount = useEditorStore((state) => state.seats.length);
   const saveLayout = useEditorStore((state) => state.saveLayout);
   const clearLayout = useEditorStore((state) => state.clearLayout);
+  const alignSelection = useEditorStore((state) => state.alignSelection);
 
   function handleSave() {
     saveLayout();
@@ -40,6 +41,14 @@ function Editor() {
     }, 50);
   }
 
+  function handleAlign() {
+    if (selectedSeatIds.length === 0) {
+      // Show a subtle message that no seats are selected
+      return;
+    }
+    alignSelection();
+  }
+
   return (
     <section className="relative flex h-full w-full bg-[#0e1319] overflow-hidden">
       {/* ── Left Sidebar (Tools + Templates) ────────────────────────────── */}
@@ -49,7 +58,7 @@ function Editor() {
           <h3 className="text-[10px] font-semibold text-[#5a6a7e] uppercase tracking-wider mb-3 px-1">
             Editor Tools
           </h3>
-          <Toolbar activeTool={activeTool} onToolChange={setActiveTool} />
+          <Toolbar activeTool={activeTool} onToolChange={setActiveTool} onAlign={handleAlign} />
           <UndoRedoControls />
         </div>
 
