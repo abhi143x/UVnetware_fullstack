@@ -12,6 +12,7 @@ import {
 import {
     generateSeatLabel,
     assignRowNumbers,
+    getNextSingleSeatLabel,
 } from "../../utils/seatNumbering";
 import { getRowLetter } from "../../utils/seatNumbering";
 import {
@@ -157,7 +158,8 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
                 if (state.activeTool === TOOL_SEAT) {
                     if (isOverlapping(worldPoint.x, worldPoint.y, state.seats))
                         return state;
-                    const newSeat = generateSeat(worldPoint);
+                    const nextSeatLabel = getNextSingleSeatLabel(state.seats);
+                    const newSeat = generateSeat(worldPoint, nextSeatLabel);
                     return { seats: [...state.seats, newSeat] };
                 }
                 return state;

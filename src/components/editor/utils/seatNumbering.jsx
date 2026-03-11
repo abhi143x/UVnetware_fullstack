@@ -21,6 +21,69 @@ export function generateSeatLabel(rowLetter, number) {
   return `${rowLetter}${number}`
 }
 
+const SINGLE_SEAT_MAX_PER_ROW = 50
+
+function getRowIndexFromLetter(rowLetter) {
+  if (typeof rowLetter !== 'string' || rowLetter.length === 0) return -1
+
+  let index = 0
+  const normalized = rowLetter.toUpperCase()
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const code = normalized.charCodeAt(i)
+    if (code < 65 || code > 90) return -1
+    index = index * 26 + (code - 64)
+  }
+
+  return index - 1
+}
+
+function getNextRowLetter(currentRow) {
+  const currentRowIndex = getRowIndexFromLetter(currentRow)
+  return getRowLetter(currentRowIndex + 1)
+}
+
+/**
+ * Returns the next row/number/label payload for single-seat creation.
+ * Rules:
+ * 1) Empty layout -> A1
+ * 2) Same row until seat 50
+ * 3) After 50 -> next row, number resets to 1
+ */
+export function getNextSingleSeatLabel(seats) {
+  if (!Array.isArray(seats) || seats.length === 0) {
+    return { row: 'A', number: 1, label: 'A1' }
+  }
+
+  for (let i = seats.length - 1; i >= 0; i -= 1) {
+    const seat = seats[i]
+    const seatNumber = Number(seat?.number)
+    const row = typeof seat?.row === 'string' ? seat.row.trim().toUpperCase() : ''
+
+    if (!row || !Number.isInteger(seatNumber) || seatNumber < 1) {
+      continue
+    }
+
+    if (seatNumber < SINGLE_SEAT_MAX_PER_ROW) {
+      const nextNumber = seatNumber + 1
+      return {
+        row,
+        number: nextNumber,
+        label: generateSeatLabel(row, nextNumber),
+      }
+    }
+
+    const nextRow = getNextRowLetter(row)
+    return {
+      row: nextRow,
+      number: 1,
+      label: generateSeatLabel(nextRow, 1),
+    }
+  }
+
+  return { row: 'A', number: 1, label: 'A1' }
+}
+
 /**
  * Detects rows from seats based on Y-coordinate grouping
  * Returns a map of row key (Y bucket) to sorted seats
