@@ -2,603 +2,552 @@ import { useEditorStore } from "./store/editorStore";
 import { TOOL_SELECT } from "./constants/tools";
 import { useState } from "react";
 
+// ── tiny primitives ──────────────────────────────────────────────────────────
+
+function SectionHeader({ children }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-[#587cb3]">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-white/5" />
+    </div>
+  );
+}
+
+function Field({ label, children, row = false }) {
+  return (
+    <div className={`flex ${row ? "items-center justify-between" : "flex-col gap-1.5"}`}>
+      <label className="text-[10px] text-[#6b7a94] font-medium tracking-wide shrink-0 w-16">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Input({ className = "", ...props }) {
+  return (
+    <input
+      {...props}
+      className={`w-full rounded-md border border-white/8 bg-[#0c1017] px-2.5 py-1.5 text-[12px] text-white/90
+        placeholder:text-white/20 outline-none transition-all
+        focus:border-[#587cb3]/60 focus:bg-[#0f1520]
+        disabled:opacity-30 disabled:cursor-not-allowed ${className}`}
+    />
+  );
+}
+
+function Select({ children, className = "", ...props }) {
+  return (
+    <select
+      {...props}
+      className={`w-full rounded-md border border-white/8 bg-[#0c1017] px-2.5 py-1.5 text-[12px] text-white/90
+        outline-none transition-all focus:border-[#587cb3]/60 focus:bg-[#0f1520]
+        appearance-none cursor-pointer ${className}`}
+    >
+      {children}
+    </select>
+  );
+}
+
+function StatusBadge({ value }) {
+  const map = {
+    available: { dot: "#4ade80", label: "Available" },
+    reserved:  { dot: "#facc15", label: "Reserved" },
+    sold:      { dot: "#f87171", label: "Sold" },
+    locked:    { dot: "#94a3b8", label: "Locked" },
+  };
+  const s = map[value] || map.available;
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
+      <span className="text-[11px] text-white/60">{s.label}</span>
+    </div>
+  );
+}
+
+// ── main component ───────────────────────────────────────────────────────────
+
 function PropertiesPanel() {
-  const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
-  const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
-  const seats = useEditorStore((state) => state.seats);
-  const texts = useEditorStore((state) => state.texts);
-  const categories = useEditorStore((state) => state.categories);
-  const updateSeat = useEditorStore((state) => state.updateSeat);
-  const updateSeats = useEditorStore((state) => state.updateSeats);
-  const updateText = useEditorStore((state) => state.updateText);
-  const clearSelection = useEditorStore((state) => state.clearSelection);
-  const setActiveTool = useEditorStore((state) => state.setActiveTool);
-  const addCategory = useEditorStore((state) => state.addCategory);
-  const updateCategory = useEditorStore((state) => state.updateCategory);
-  const removeCategory = useEditorStore((state) => state.removeCategory);
+  const selectedSeatIds = useEditorStore((s) => s.selectedSeatIds);
+  const selectedTextIds = useEditorStore((s) => s.selectedTextIds);
+  const seats           = useEditorStore((s) => s.seats);
+  const texts           = useEditorStore((s) => s.texts);
+  const categories      = useEditorStore((s) => s.categories);
+  const updateSeat      = useEditorStore((s) => s.updateSeat);
+  const updateSeats     = useEditorStore((s) => s.updateSeats);
+  const updateText      = useEditorStore((s) => s.updateText);
+  const clearSelection  = useEditorStore((s) => s.clearSelection);
+  const setActiveTool   = useEditorStore((s) => s.setActiveTool);
+  const addCategory     = useEditorStore((s) => s.addCategory);
+  const updateCategory  = useEditorStore((s) => s.updateCategory);
+  const removeCategory  = useEditorStore((s) => s.removeCategory);
 
-  const selectedSeatId =
-    selectedSeatIds.length === 1 ? selectedSeatIds[0] : null;
-  const selectedSeat = selectedSeatId
-    ? seats.find((s) => s.id === selectedSeatId)
-    : null;
-  const selectedTextId =
-    selectedTextIds.length === 1 ? selectedTextIds[0] : null;
-  const selectedText = selectedTextId
-    ? texts.find((t) => t.id === selectedTextId)
-    : null;
+  const selectedSeatId = selectedSeatIds.length === 1 ? selectedSeatIds[0] : null;
+  const selectedSeat   = selectedSeatId ? seats.find((s) => s.id === selectedSeatId) : null;
+  const selectedTextId = selectedTextIds.length === 1 ? selectedTextIds[0] : null;
+  const selectedText   = selectedTextId ? texts.find((t) => t.id === selectedTextId) : null;
 
-  const isMultipleSeats = selectedSeatIds.length > 1;
+  const isMultipleSeats  = selectedSeatIds.length > 1;
   const hasSeatsSelected = selectedSeatIds.length > 0;
+  const selectedSeats    = hasSeatsSelected ? seats.filter((s) => selectedSeatIds.includes(s.id)) : [];
 
-  const selectedSeats = hasSeatsSelected
-    ? seats.filter((s) => selectedSeatIds.includes(s.id))
-    : [];
-
-  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryName,  setNewCategoryName]  = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#5fa7ff");
   const [newCategoryPrice, setNewCategoryPrice] = useState("");
+  const [catOpen, setCatOpen] = useState(false);
 
-  // Function to handle the Apply button click
-  const handleApply = () => {
-    clearSelection();
-    setActiveTool(TOOL_SELECT);
-  };
+  const handleApply = () => { clearSelection(); setActiveTool(TOOL_SELECT); };
 
-  // Handle seat property updates
   const handleSeatUpdate = (field, value) => {
-    if (isMultipleSeats) {
-      updateSeats(selectedSeatIds, { [field]: value });
-    } else if (selectedSeat) {
-      updateSeat(selectedSeat.id, { [field]: value });
-    }
+    if (isMultipleSeats) updateSeats(selectedSeatIds, { [field]: value });
+    else if (selectedSeat) updateSeat(selectedSeat.id, { [field]: value });
   };
 
-  // Get common values for multiple selection
   const getCommonSeatValue = (field) => {
-    if (!isMultipleSeats || selectedSeatIds.length === 0) return null;
-    if (selectedSeats.length === 0) return null;
-    const firstValue = selectedSeats[0]?.[field];
-    const allSame = selectedSeats.every((s) => s?.[field] === firstValue);
-    return allSame ? firstValue : null;
+    if (!isMultipleSeats || selectedSeats.length === 0) return null;
+    const first = selectedSeats[0]?.[field];
+    return selectedSeats.every((s) => s?.[field] === first) ? first : null;
   };
 
   if (!hasSeatsSelected && !selectedText) return null;
 
   const MIXED = "__mixed__";
-  const commonCategory = isMultipleSeats
-    ? getCommonSeatValue("category")
-    : (selectedSeat?.category ?? null);
-  const commonStatus = isMultipleSeats
-    ? getCommonSeatValue("status")
-    : (selectedSeat?.status ?? "available");
-  const commonPrice = isMultipleSeats
-    ? getCommonSeatValue("price")
-    : (selectedSeat?.price ?? null);
+  const commonCategory = isMultipleSeats ? getCommonSeatValue("category") : (selectedSeat?.category ?? null);
+  const commonStatus   = isMultipleSeats ? getCommonSeatValue("status")   : (selectedSeat?.status   ?? "available");
+  const commonPrice    = isMultipleSeats ? getCommonSeatValue("price")    : (selectedSeat?.price    ?? null);
 
   const categoryValueForSelect = isMultipleSeats
-    ? commonCategory === null
-      ? MIXED
-      : commonCategory || ""
-    : commonCategory || "";
+    ? (commonCategory === null ? MIXED : commonCategory || "")
+    : (commonCategory || "");
 
   const statusValueForSelect = isMultipleSeats
-    ? commonStatus === null
-      ? MIXED
-      : commonStatus || "available"
-    : commonStatus || "available";
+    ? (commonStatus === null ? MIXED : commonStatus || "available")
+    : (commonStatus || "available");
 
-  const selectedCategoryForInfo =
-    categories.find((c) => c.id === commonCategory) || null;
+  const selectedCategoryForInfo = categories.find((c) => c.id === commonCategory) || null;
 
-  const applyCategoryPriceToSelection = () => {
-    const price = selectedCategoryForInfo?.price;
-    if (price === null || price === undefined || Number.isNaN(price)) return;
-    handleSeatUpdate("price", price);
+  const applyCategoryPrice = () => {
+    const p = selectedCategoryForInfo?.price;
+    if (p === null || p === undefined || Number.isNaN(p)) return;
+    handleSeatUpdate("price", p);
   };
 
   const handleAddCategory = () => {
     const name = newCategoryName.trim();
     if (!name) return;
-    const parsedPrice =
-      newCategoryPrice === "" ? null : parseFloat(newCategoryPrice);
-    addCategory({
-      name,
-      color: newCategoryColor,
-      price: Number.isNaN(parsedPrice) ? null : parsedPrice,
-    });
-    setNewCategoryName("");
-    setNewCategoryColor("#5fa7ff");
-    setNewCategoryPrice("");
+    const parsed = newCategoryPrice === "" ? null : parseFloat(newCategoryPrice);
+    addCategory({ name, color: newCategoryColor, price: Number.isNaN(parsed) ? null : parsed });
+    setNewCategoryName(""); setNewCategoryColor("#5fa7ff"); setNewCategoryPrice("");
   };
 
   return (
-    <aside className="w-75 shrink-0 bg-[#11161c] flex flex-col text-sm text-[#c9d6ea] h-full overflow-y-auto">
-      <div className="p-5 flex flex-col gap-8">
+    <aside
+      className="w-[240px] shrink-0 flex flex-col text-sm h-full overflow-y-auto"
+      style={{
+        background: "linear-gradient(180deg, #0d1219 0%, #0a0f15 100%)",
+        borderLeft: "1px solid rgba(255,255,255,0.05)",
+        fontFamily: "'DM Mono', 'Fira Mono', monospace",
+      }}
+    >
+      {/* Header bar */}
+      <div
+        className="flex items-center justify-between px-4 py-3 shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#587cb3]">
+          {hasSeatsSelected
+            ? isMultipleSeats ? `${selectedSeatIds.length} Seats` : "Seat"
+            : "Text"}
+        </span>
+        {selectedSeat && (
+          <StatusBadge value={selectedSeat.status || "available"} />
+        )}
+      </div>
+
+      <div className="flex flex-col gap-5 p-4 flex-1">
+
+        {/* ── SEAT SECTION ── */}
         {hasSeatsSelected && (
           <>
-            {/* SEAT Section */}
-            <div className="flex flex-col gap-4">
-              <h3 className="text-xs font-semibold tracking-wide text-white">
-                {isMultipleSeats ? `Seat (${selectedSeatIds.length})` : "Seat"}
-              </h3>
+            {/* Single-seat identity fields */}
+            {selectedSeat && !isMultipleSeats && (
+              <div className="flex flex-col gap-3">
+                <SectionHeader>Identity</SectionHeader>
 
-              {/* Single-seat-only fields */}
-              {selectedSeat && !isMultipleSeats && (
-                <>
-                  {/* Seat ID */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[11px] text-gray-400">ID</label>
-                    <input
-                      type="text"
-                      value={selectedSeat.id}
-                      disabled
-                      className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white/60 outline-none cursor-not-allowed"
+                <Field label="ID">
+                  <Input value={selectedSeat.id} disabled />
+                </Field>
+
+                <Field label="Label">
+                  <Input
+                    value={selectedSeat.label || ""}
+                    onChange={(e) => handleSeatUpdate("label", e.target.value)}
+                    placeholder={
+                      selectedSeat.row && selectedSeat.number
+                        ? `${selectedSeat.row}${selectedSeat.number}`
+                        : "Auto"
+                    }
+                  />
+                </Field>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Row">
+                    <Input
+                      value={selectedSeat.row || ""}
+                      onChange={(e) => handleSeatUpdate("row", e.target.value.toUpperCase())}
+                      placeholder="A"
                     />
-                  </div>
-
-                  {/* Label */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[11px] text-gray-400">Label</label>
-                    <input
-                      type="text"
-                      value={
-                        isMultipleSeats
-                          ? getCommonSeatValue("label") || ""
-                          : selectedSeat.label || ""
-                      }
-                      onChange={(e) =>
-                        handleSeatUpdate("label", e.target.value)
-                      }
-                      placeholder={
-                        selectedSeat.row && selectedSeat.number
-                          ? `${selectedSeat.row}${selectedSeat.number}`
-                          : "Auto"
-                      }
-                      className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                    />
-                  </div>
-
-                  {/* Row & Number */}
-                  <div className="flex gap-2">
-                    <div className="flex flex-col gap-2 flex-1">
-                      <label className="text-[11px] text-gray-400">Row</label>
-                      <input
-                        type="text"
-                        value={
-                          isMultipleSeats
-                            ? getCommonSeatValue("row") || ""
-                            : selectedSeat.row || ""
-                        }
-                        onChange={(e) =>
-                          handleSeatUpdate("row", e.target.value.toUpperCase())
-                        }
-                        placeholder="A"
-                        className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2 flex-1">
-                      <label className="text-[11px] text-gray-400">
-                        Number
-                      </label>
-                      <input
-                        type="number"
-                        value={
-                          isMultipleSeats
-                            ? getCommonSeatValue("number") || ""
-                            : selectedSeat.number || ""
-                        }
-                        onChange={(e) =>
-                          handleSeatUpdate(
-                            "number",
-                            e.target.value ? parseInt(e.target.value) : null,
-                          )
-                        }
-                        placeholder="1"
-                        className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Category */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[11px] text-gray-400">
-                      Category
-                    </label>
-                    <select
-                      value={
-                        isMultipleSeats
-                          ? getCommonSeatValue("category") || ""
-                          : selectedSeat.category || ""
-                      }
-                      onChange={(e) =>
-                        handleSeatUpdate("category", e.target.value || null)
-                      }
-                      className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                    >
-                      <option value="">None</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[11px] text-gray-400">Status</label>
-                    <select
-                      value={
-                        isMultipleSeats
-                          ? getCommonSeatValue("status") || "available"
-                          : selectedSeat.status || "available"
-                      }
-                      onChange={(e) =>
-                        handleSeatUpdate("status", e.target.value)
-                      }
-                      className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                    >
-                      <option value="available">Available</option>
-                      <option value="reserved">Reserved</option>
-                      <option value="sold">Sold</option>
-                      <option value="locked">Locked</option>
-                    </select>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[11px] text-gray-400">Price</label>
-                    <input
+                  </Field>
+                  <Field label="No.">
+                    <Input
                       type="number"
-                      step="0.01"
-                      value={
-                        isMultipleSeats
-                          ? getCommonSeatValue("price") || ""
-                          : selectedSeat.price || ""
-                      }
+                      value={selectedSeat.number || ""}
                       onChange={(e) =>
-                        handleSeatUpdate(
-                          "price",
-                          e.target.value ? parseFloat(e.target.value) : null,
-                        )
+                        handleSeatUpdate("number", e.target.value ? parseInt(e.target.value) : null)
                       }
-                      placeholder="0.00"
-                      className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
+                      placeholder="1"
                     />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* Properties (bulk-capable) */}
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Properties</SectionHeader>
+
+              {/* Category */}
+              <Field label="Category">
+                <div className="relative">
+                  <Select
+                    value={categoryValueForSelect}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v !== MIXED) handleSeatUpdate("category", v || null);
+                    }}
+                  >
+                    {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
+                    <option value="">None</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </Select>
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">▾</span>
+                </div>
+              </Field>
+
+              {/* Category info chip */}
+              {selectedCategoryForInfo && (
+                <div
+                  className="flex items-center justify-between rounded-md px-3 py-2"
+                  style={{ background: "rgba(88,124,179,0.08)", border: "1px solid rgba(88,124,179,0.2)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-sm"
+                      style={{ background: selectedCategoryForInfo.color, boxShadow: `0 0 6px ${selectedCategoryForInfo.color}60` }}
+                    />
+                    <span className="text-[11px] text-white/70">{selectedCategoryForInfo.name}</span>
                   </div>
-                </>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/40">
+                      {selectedCategoryForInfo.price != null ? `$${selectedCategoryForInfo.price}` : "—"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={applyCategoryPrice}
+                      disabled={selectedCategoryForInfo.price == null}
+                      className="rounded px-2 py-0.5 text-[10px] text-[#587cb3] transition-all
+                        hover:bg-[#587cb3]/15 disabled:opacity-30 disabled:cursor-not-allowed"
+                      style={{ border: "1px solid rgba(88,124,179,0.3)" }}
+                    >
+                      Use
+                    </button>
+                  </div>
+                </div>
               )}
 
-              {/* Category (bulk-capable) */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[11px] text-gray-400">Category</label>
-                <select
-                  value={categoryValueForSelect}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === MIXED) return;
-                    handleSeatUpdate("category", v || null);
-                  }}
-                  className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                >
-                  {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
-                  <option value="">None</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedCategoryForInfo && (
-                  <div className="flex items-center justify-between rounded border border-white/10 bg-[#0e1319] px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-sm border border-white/10"
-                        style={{ background: selectedCategoryForInfo.color }}
-                      />
-                      <span className="text-[11px] text-gray-300">
-                        {selectedCategoryForInfo.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-gray-400">
-                        Price: {selectedCategoryForInfo.price ?? "—"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={applyCategoryPriceToSelection}
-                        disabled={
-                          selectedCategoryForInfo.price === null ||
-                          selectedCategoryForInfo.price === undefined
-                        }
-                        className="rounded bg-white/5 px-2 py-1 text-[11px] text-white/90 hover:bg-white/10 disabled:opacity-40"
-                        title="Set seat price = category price"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Status */}
+              <Field label="Status">
+                <div className="relative">
+                  <Select
+                    value={statusValueForSelect}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v !== MIXED) handleSeatUpdate("status", v);
+                    }}
+                  >
+                    {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
+                    <option value="locked">Locked</option>
+                  </Select>
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">▾</span>
+                </div>
+              </Field>
 
-              {/* Status (bulk-capable) */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[11px] text-gray-400">Status</label>
-                <select
-                  value={statusValueForSelect}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === MIXED) return;
-                    handleSeatUpdate("status", v);
-                  }}
-                  className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                >
-                  {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
-                  <option value="available">Available</option>
-                  <option value="reserved">Reserved</option>
-                  <option value="sold">Sold</option>
-                  <option value="locked">Locked</option>
-                </select>
-              </div>
-
-              {/* Price (bulk-capable) */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[11px] text-gray-400">Seat price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={
-                    isMultipleSeats
-                      ? commonPrice === null
-                        ? ""
-                        : commonPrice
-                      : (selectedSeat?.price ?? "")
-                  }
-                  onChange={(e) =>
-                    handleSeatUpdate(
-                      "price",
-                      e.target.value ? parseFloat(e.target.value) : null,
-                    )
-                  }
-                  placeholder={
-                    isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"
-                  }
-                  className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                />
-              </div>
+              {/* Price */}
+              <Field label="Price">
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={isMultipleSeats ? (commonPrice ?? "") : (selectedSeat?.price ?? "")}
+                    onChange={(e) =>
+                      handleSeatUpdate("price", e.target.value ? parseFloat(e.target.value) : null)
+                    }
+                    placeholder={isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"}
+                    className="pl-6"
+                  />
+                </div>
+              </Field>
             </div>
 
             {/* Categories Manager */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-xs font-semibold tracking-wide text-white">
-                Categories
-              </h3>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setCatOpen((v) => !v)}
+                className="flex items-center justify-between w-full group"
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-[#587cb3]">
+                    Categories
+                  </span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+                <span className={`ml-2 text-[10px] text-white/30 transition-transform ${catOpen ? "rotate-180" : ""}`}>▾</span>
+              </button>
 
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="rounded border border-white/10 bg-[#0e1319] p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={cat.color || "#5fa7ff"}
-                      onChange={(e) =>
-                        updateCategory(cat.id, { color: e.target.value })
-                      }
-                      className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
-                      title="Color"
-                    />
-                    <input
-                      type="text"
-                      value={cat.name || ""}
-                      onChange={(e) =>
-                        updateCategory(cat.id, { name: e.target.value })
-                      }
-                      className="min-w-0 flex-1 rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                      placeholder="Category name"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeCategory(cat.id)}
-                      className="rounded border border-red-500/30 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10"
-                      title="Delete category"
+              {catOpen && (
+                <div className="flex flex-col gap-2 mt-1">
+                  {categories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="rounded-md p-2.5 flex flex-col gap-2"
+                      style={{ background: "#0c1017", border: "1px solid rgba(255,255,255,0.06)" }}
                     >
-                      Del
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <label className="text-[11px] text-gray-400 w-14">
-                      Price
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={cat.price ?? ""}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        const parsed = v === "" ? null : parseFloat(v);
-                        updateCategory(cat.id, {
-                          price: Number.isNaN(parsed) ? null : parsed,
-                        });
-                      }}
-                      className="flex-1 rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                      placeholder="—"
-                    />
-                  </div>
-                </div>
-              ))}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="relative h-7 w-7 rounded shrink-0 overflow-hidden"
+                          style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                        >
+                          <input
+                            type="color"
+                            value={cat.color || "#5fa7ff"}
+                            onChange={(e) => updateCategory(cat.id, { color: e.target.value })}
+                            className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                            title="Color"
+                          />
+                          <span
+                            className="block w-full h-full"
+                            style={{ background: cat.color || "#5fa7ff" }}
+                          />
+                        </div>
+                        <Input
+                          value={cat.name || ""}
+                          onChange={(e) => updateCategory(cat.id, { name: e.target.value })}
+                          placeholder="Category name"
+                          className="flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCategory(cat.id)}
+                          className="shrink-0 text-[10px] text-red-400/60 hover:text-red-400 transition-colors px-1"
+                          title="Delete"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">Price</span>
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={cat.price ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              const p = v === "" ? null : parseFloat(v);
+                              updateCategory(cat.id, { price: Number.isNaN(p) ? null : p });
+                            }}
+                            placeholder="—"
+                            className="pl-6"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
 
-              <div className="rounded border border-white/10 bg-[#0e1319] p-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={newCategoryColor}
-                    onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="h-8 w-10 cursor-pointer border-0 bg-transparent p-0"
-                    title="Color"
-                  />
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="min-w-0 flex-1 rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                    placeholder="New category name"
-                  />
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <label className="text-[11px] text-gray-400 w-14">
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newCategoryPrice}
-                    onChange={(e) => setNewCategoryPrice(e.target.value)}
-                    className="flex-1 rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
-                    placeholder="—"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddCategory}
-                    className="rounded bg-white/5 px-3 py-1.5 text-[11px] text-white hover:bg-white/10"
+                  {/* Add new category */}
+                  <div
+                    className="rounded-md p-2.5 flex flex-col gap-2"
+                    style={{ background: "#0c1017", border: "1px dashed rgba(88,124,179,0.25)" }}
                   >
-                    Add
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="relative h-7 w-7 rounded shrink-0 overflow-hidden"
+                        style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+                      >
+                        <input
+                          type="color"
+                          value={newCategoryColor}
+                          onChange={(e) => setNewCategoryColor(e.target.value)}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                        />
+                        <span className="block w-full h-full" style={{ background: newCategoryColor }} />
+                      </div>
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="New category…"
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">Price</span>
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={newCategoryPrice}
+                          onChange={(e) => setNewCategoryPrice(e.target.value)}
+                          placeholder="—"
+                          className="pl-6"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddCategory}
+                        className="shrink-0 rounded px-3 py-1.5 text-[11px] font-medium text-[#587cb3] transition-all
+                          hover:bg-[#587cb3]/15"
+                        style={{ border: "1px solid rgba(88,124,179,0.35)" }}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
-
-            <hr className="border-white/5" />
           </>
         )}
 
+        {/* ── TEXT SECTION ── */}
         {selectedText && (
           <>
-            {/* TEXT Section */}
-            <div className="flex flex-col gap-4">
-              <h3 className="text-xs font-semibold tracking-wide text-white">
-                Text
-              </h3>
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Content</SectionHeader>
 
-              {/* Caption */}
-              <div className="flex flex-col gap-2">
-                <label className="text-[11px] text-gray-400">Caption</label>
-                <input
-                  type="text"
+              <Field label="Caption">
+                <Input
                   value={selectedText.content}
-                  onChange={(e) =>
-                    updateText(selectedText.id, { content: e.target.value })
-                  }
-                  className="rounded border border-white/10 bg-[#0e1319] px-3 py-1.5 text-white outline-none focus:border-[#587cb3]"
+                  onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
                 />
-              </div>
+              </Field>
+            </div>
 
-              {/* Font Size */}
-              <div className="flex items-center justify-between mt-2">
-                <label className="text-[11px] text-gray-400">Font size</label>
-                <div className="flex items-center gap-1 rounded border border-white/10 bg-[#0e1319] px-1 py-0.5">
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Typography</SectionHeader>
+
+              {/* Font size stepper */}
+              <Field label="Size" row>
+                <div
+                  className="flex items-center rounded-md overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "#0c1017" }}
+                >
                   <button
                     onClick={() =>
-                      updateText(selectedText.id, {
-                        fontSize: Math.max(
-                          8,
-                          (selectedText.fontSize || 20) - 1,
-                        ),
-                      })
+                      updateText(selectedText.id, { fontSize: Math.max(8, (selectedText.fontSize || 20) - 1) })
                     }
-                    className="px-2 py-1 text-gray-400 hover:text-white cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors text-sm"
                   >
-                    &lt;
+                    −
                   </button>
-                  <span className="w-12 text-center text-xs text-white">
-                    {selectedText.fontSize || 20} pt
+                  <span className="w-12 text-center text-[12px] text-white/80 tabular-nums">
+                    {selectedText.fontSize || 20}
                   </span>
                   <button
                     onClick={() =>
-                      updateText(selectedText.id, {
-                        fontSize: Math.min(
-                          120,
-                          (selectedText.fontSize || 20) + 1,
-                        ),
-                      })
+                      updateText(selectedText.id, { fontSize: Math.min(120, (selectedText.fontSize || 20) + 1) })
                     }
-                    className="px-2 py-1 text-gray-400 hover:text-white cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors text-sm"
                   >
-                    &gt;
+                    +
                   </button>
                 </div>
-              </div>
+              </Field>
 
-              {/* Text color */}
-              <div className="flex items-center justify-between mt-2">
-                <label className="text-[11px] text-gray-400">Text color</label>
-                <div className="flex items-center border border-white/10 rounded bg-[#0e1319] overflow-hidden pr-2">
+              {/* Color */}
+              <Field label="Color" row>
+                <div
+                  className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5"
+                  style={{ background: "#0c1017", border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  <div
+                    className="h-4 w-4 rounded-sm shrink-0"
+                    style={{ background: selectedText.fill || "#c9d6ea", border: "1px solid rgba(255,255,255,0.15)" }}
+                  />
+                  <span className="text-[11px] text-white/60 tabular-nums">
+                    {selectedText.fill || "#c9d6ea"}
+                  </span>
                   <input
                     type="color"
                     value={selectedText.fill || "#c9d6ea"}
-                    onChange={(e) =>
-                      updateText(selectedText.id, { fill: e.target.value })
-                    }
-                    className="h-8 w-12 cursor-pointer border-0 p-0 bg-transparent"
+                    onChange={(e) => updateText(selectedText.id, { fill: e.target.value })}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                  <span className="text-[10px] text-gray-400 w-4">▼</span>
                 </div>
-              </div>
+              </Field>
 
-              {/* Style */}
-              <div className="flex items-center justify-between mt-2">
-                <label className="text-[11px] text-gray-400">Style</label>
-                <div className="flex overflow-hidden rounded border border-white/10 bg-[#0e1319]">
+              {/* Style toggles */}
+              <Field label="Style" row>
+                <div
+                  className="flex rounded-md overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                >
                   <button
                     onClick={() =>
                       updateText(selectedText.id, {
-                        fontWeight:
-                          selectedText.fontWeight === "bold"
-                            ? "normal"
-                            : "bold",
+                        fontWeight: selectedText.fontWeight === "bold" ? "normal" : "bold",
                       })
                     }
-                    className={`px-4 py-1.5 font-bold text-sm ${selectedText.fontWeight === "bold" ? "bg-[#587cb3] text-white" : "text-gray-400 hover:bg-white/5"}`}
+                    className={`w-9 h-7 font-bold text-sm transition-all
+                      ${selectedText.fontWeight === "bold"
+                        ? "bg-[#587cb3] text-white"
+                        : "bg-[#0c1017] text-white/35 hover:text-white/60"}`}
                   >
                     B
                   </button>
-                  <div className="w-px bg-white/10" />
+                  <div className="w-px bg-white/8" />
                   <button
                     onClick={() =>
                       updateText(selectedText.id, {
-                        fontStyle:
-                          selectedText.fontStyle === "italic"
-                            ? "normal"
-                            : "italic",
+                        fontStyle: selectedText.fontStyle === "italic" ? "normal" : "italic",
                       })
                     }
-                    className={`px-4 py-1.5 italic font-serif text-sm ${selectedText.fontStyle === "italic" ? "bg-[#587cb3] text-white" : "text-gray-400 hover:bg-white/5"}`}
+                    className={`w-9 h-7 italic text-sm transition-all
+                      ${selectedText.fontStyle === "italic"
+                        ? "bg-[#587cb3] text-white"
+                        : "bg-[#0c1017] text-white/35 hover:text-white/60"}`}
                   >
                     I
                   </button>
                 </div>
-              </div>
+              </Field>
             </div>
 
-            <hr className="border-white/5" />
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Transform</SectionHeader>
 
-            {/* TRANSFORM Section */}
-            <div className="flex flex-col gap-4">
-              <h3 className="text-xs font-semibold tracking-wide text-white">
-                Transform
-              </h3>
-
-              {/* Rotate */}
-              <div className="flex items-center gap-4">
-                <label className="text-[11px] text-gray-400 w-16">Rotate</label>
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-gray-500 px-1">
-                    <span>-180</span>
-                    <span>0</span>
-                    <span>180</span>
-                  </div>
+              <Field label="Rotate">
+                <div className="flex flex-col gap-1 flex-1">
                   <input
                     type="range"
                     min="-180"
@@ -606,27 +555,36 @@ function PropertiesPanel() {
                     step="1"
                     value={selectedText.rotate ?? 0}
                     onChange={(e) =>
-                      updateText(selectedText.id, {
-                        rotate: parseFloat(e.target.value),
-                      })
+                      updateText(selectedText.id, { rotate: parseFloat(e.target.value) })
                     }
-                    className="flex-1 accent-[#587cb3]"
+                    className="w-full accent-[#587cb3]"
+                    style={{ marginLeft: "0.5rem" }}
                   />
+                  <div className="flex justify-between text-[9px] text-white/20 px-0.5" style={{ marginLeft: "0.5rem" }}>
+                    <span>-180°</span>
+                    <span className="text-white/40 tabular-nums">{selectedText.rotate ?? 0}°</span>
+                    <span>180°</span>
+                  </div>
                 </div>
-              </div>
+              </Field>
             </div>
           </>
         )}
+      </div>
 
-        {/* Apply Button */}
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={handleApply}
-            className="rounded bg-[#587cb3] px-6 py-2 text-sm font-medium text-white hover:bg-[#688cc3] transition-colors"
-          >
-            Apply
-          </button>
-        </div>
+      {/* Apply footer */}
+      <div
+        className="px-4 py-3 shrink-0"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+      >
+        <button
+          onClick={handleApply}
+          className="w-full rounded-md py-2 text-[12px] font-semibold tracking-wide text-white transition-all
+            hover:brightness-110 active:scale-[0.98]"
+          style={{ background: "linear-gradient(135deg, #3d5f96, #587cb3)" }}
+        >
+          Apply
+        </button>
       </div>
     </aside>
   );
