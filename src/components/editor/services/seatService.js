@@ -1,8 +1,26 @@
-import { ELEMENT_TYPES } from "../domain/elementTypes";
+import { generateLayoutId } from "../../../utils/layoutIdGenerator";
+import { generateSeatId } from "../../../utils/seatIdGenerator";
 
 export const DEFAULT_SEAT_RADIUS = 12;
 export const DEFAULT_SEAT_FILL = "#5fa7ff";
 export const DEFAULT_SEAT_STROKE = "#cfe4ff";
+export const layoutId = generateLayoutId();
+
+const generatedSeatIds = new Set();
+
+function buildGeneratedSeatSnapshot() {
+    return Array.from(generatedSeatIds, (id) => ({ id }));
+}
+
+function reserveSeatId(existingSeats = []) {
+    const sourceSeats =
+        Array.isArray(existingSeats) && existingSeats.length > 0
+            ? existingSeats
+            : buildGeneratedSeatSnapshot();
+    const nextSeatId = generateSeatId(sourceSeats, layoutId);
+    generatedSeatIds.add(nextSeatId);
+    return nextSeatId;
+}
 
 export function createId(prefix = "item") {
     if (
@@ -15,8 +33,11 @@ export function createId(prefix = "item") {
 }
 
 export function generateSeat(point, options = {}) {
+    const nextSeatId = reserveSeatId(options.seats);
     return {
-        id: createId(ELEMENT_TYPES.SEAT),
+        id: nextSeatId,
+        seatId: nextSeatId,
+        layoutId,
         x: point.x,
         y: point.y,
         radius: DEFAULT_SEAT_RADIUS, // Keep for backward compatibility (half of square size)
