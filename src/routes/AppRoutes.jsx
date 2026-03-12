@@ -14,10 +14,8 @@ import Profile from "../components/pages/Profile";
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-
       <ScrollToTop />
       <Routes>
-        
         <Route
           path="/"
           element={
@@ -39,7 +37,7 @@ export default function AppRoutes() {
         <Route
           path="/editor"
           element={
-            <MainLayout>
+            <MainLayout showFooter={false}>
               <Editor />
             </MainLayout>
           }
