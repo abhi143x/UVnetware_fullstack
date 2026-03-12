@@ -13,10 +13,8 @@ import ScrollToTop from "../components/utils/ScrollToTop.jsx";
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-
       <ScrollToTop />
       <Routes>
-        
         <Route
           path="/"
           element={
@@ -38,7 +36,7 @@ export default function AppRoutes() {
         <Route
           path="/editor"
           element={
-            <MainLayout>
+            <MainLayout showFooter={false}>
               <Editor />
             </MainLayout>
           }
@@ -65,7 +63,6 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
-
       </Routes>
     </BrowserRouter>
   );

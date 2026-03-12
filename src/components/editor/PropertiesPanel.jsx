@@ -213,10 +213,11 @@ function PropertiesPanel() {
 
   return (
     <aside
-      className="w-[240px] shrink-0 flex flex-col text-sm h-full overflow-y-auto"
+      className="w-70 shrink-0 flex flex-col text-sm h-full overflow-y-auto"
       style={{
-        background: "linear-gradient(180deg, #0d1219 0%, #0a0f15 100%)",
-        borderLeft: "1px solid rgba(255,255,255,0.05)",
+        background: "linear-gradient(180deg, #0f1622 0%, #0b1119 100%)",
+        borderLeft: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "inset 1px 0 0 rgba(255,255,255,0.04)",
         fontFamily: "'DM Mono', 'Fira Mono', monospace",
       }}
     >
