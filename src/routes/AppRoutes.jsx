@@ -7,6 +7,7 @@ import Login from "../components/pages/auth/Login.jsx";
 import SignUp from "../components/pages/auth/SignUp.jsx";
 import Feature from "../components/pages/Feature.jsx";
 import Contact from "../components/pages/Contact.jsx";
+import Documentation from "../components/pages/Documentation.jsx";
 
 import ScrollToTop from "../components/utils/ScrollToTop.jsx";
 import Profile from "../components/pages/Profile";
@@ -43,9 +44,23 @@ export default function AppRoutes() {
           }
         />
 
-        <Route path="/login" element={<Login />} />
+        <Route
+          path="/login"
+          element={
+            <MainLayout>
+              <Login />
+            </MainLayout>
+          }
+        />
 
-        <Route path="/signup" element={<SignUp />} />
+        <Route
+          path="/signup"
+          element={
+            <MainLayout>
+              <SignUp />
+            </MainLayout>
+          }
+        />
 
         <Route
           path="/features"
@@ -65,12 +80,16 @@ export default function AppRoutes() {
           }
         />
 
-        <Route 
-        path="/profile" 
-        element={
-        <Profile />
-        } />
+        <Route
+          path="/documentation"
+          element={
+            <MainLayout>
+              <Documentation />
+            </MainLayout>
+          }
+        />
 
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );

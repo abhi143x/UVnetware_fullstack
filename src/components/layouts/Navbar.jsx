@@ -145,7 +145,6 @@ export default function Navbar() {
   };
 
   const navItems = [
-    { name: "Home", href: "/" },
     {
       name: "Dashboard",
       href: "/dashboard",
@@ -157,6 +156,7 @@ export default function Navbar() {
       isButton: true,
     },
     { name: "Features", href: "/features", isButton: true },
+    { name: "Documentation", href: "/documentation", isButton: true },
   ];
 
   const isActiveRoute = (href) => {
@@ -224,7 +224,7 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* SECTION 3: Login/Signup */}
+        {/* SECTION 3: Login */}
 
         <div className="hidden md:flex shrink-0 items-center gap-4">
           {currentUser ? (
@@ -355,12 +355,6 @@ export default function Navbar() {
               >
                 Login
               </Link>
-              <Link
-                to="/signup"
-                className="px-4 py-2 text-white text-base font-bold rounded-lg bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50 hover:scale-105 transition-all duration-300"
-              >
-                Signup
-              </Link>
             </>
           )}
         </div>
@@ -460,13 +454,6 @@ export default function Navbar() {
                     className="flex items-center justify-center gap-8 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 font-bold text-lg"
                   >
                     Login
-                  </Link>
-                  <Link
-                    to="/signup"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-white text-blue-600 rounded-lg border border-blue-600 hover:bg-linear-to-r hover:from-blue-600 hover:to-blue-500 hover:text-white hover:border-transparent transition-all duration-300 font-bold text-lg"
-                  >
-                    Signup
                   </Link>
                 </>
               )}

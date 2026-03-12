@@ -4,10 +4,10 @@ import Footer from "./Footer1.jsx";
 
 export default function MainLayout({ children, showFooter = true }) {
   return (
-    <>
+    <div className="min-h-dvh flex flex-col">
       <Navbar />
-      {children ?? <Outlet />}
+      <main className="flex-1 flex flex-col">{children ?? <Outlet />}</main>
       {showFooter && <Footer />}
-    </>
+    </div>
   );
 }
