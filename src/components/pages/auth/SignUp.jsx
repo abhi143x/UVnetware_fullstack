@@ -85,11 +85,11 @@ export default function SignUp() {
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-lg">
-        <h1 className="text-3xl text-center font-semibold mb-7">Sign Up</h1>
+        <h1 className="text-3xl text-center font-semibold mb-7">Sign <span className="text-blue-500">Up</span></h1>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <input
-            className="p-3 rounded-lg bg-[#000021] text-white"
-            style={{ border: "1.75px solid #000055" }}
+            className="p-3 rounded-lg bg-[#000000] text-white"
+            style={{ border: "1px solid white" }}
             type="text"
             placeholder="Username"
             value={formData.username}
@@ -99,8 +99,8 @@ export default function SignUp() {
           />
 
           <input
-            className="p-3 rounded-lg bg-[#000021] text-white"
-            style={{ border: "1.75px solid #000055" }}
+            className="p-3 rounded-lg bg-[#000000] text-white"
+            style={{ border: "1px solid white" }}
             type="email"
             placeholder="Email"
             value={formData.email}
@@ -110,8 +110,8 @@ export default function SignUp() {
           />
 
           <input
-            className="p-3 rounded-lg bg-[#000021] text-white"
-            style={{ border: "1.75px solid #000055" }}
+            className="p-3 rounded-lg bg-[#000000] text-white"
+            style={{ border: "1px solid white" }}
             type="password"
             placeholder="Password"
             value={formData.password}

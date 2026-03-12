@@ -9,6 +9,7 @@ import Feature from "../components/pages/Feature.jsx";
 import Contact from "../components/pages/Contact.jsx";
 
 import ScrollToTop from "../components/utils/ScrollToTop.jsx";
+import Profile from "../components/pages/Profile";
 
 export default function AppRoutes() {
   return (
@@ -65,6 +66,12 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
+
+        <Route 
+        path="/profile" 
+        element={
+        <Profile />
+        } />
 
       </Routes>
     </BrowserRouter>

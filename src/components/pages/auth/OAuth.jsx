@@ -48,12 +48,24 @@ export default function OAuth() {
   return (
     <div>
       <button
-        className="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg uppercase font-semibold transition-colors w-full disabled:opacity-70"
+        className="w-full flex items-center justify-center gap-3 px-4 py-3 
+  bg-blue-600 hover:bg-blue-700 
+  text-white font-semibold rounded-lg 
+  transition-all duration-300 
+  hover:shadow-lg hover:shadow-blue-500/40
+  disabled:opacity-60 disabled:cursor-not-allowed"
         onClick={handleGoogleClick}
         disabled={loading}
         type="button"
       >
-        {loading ? "Loading..." : "Continue with Google"}
+        {/* Google Icon */}
+        <img
+          src="https://www.svgrepo.com/show/475656/google-color.svg"
+          alt="Google"
+          className="w-5 h-5"
+        />
+
+        {loading ? "Signing in..." : "Continue with Google"}
       </button>
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
     </div>
