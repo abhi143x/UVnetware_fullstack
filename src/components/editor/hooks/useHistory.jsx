@@ -97,3 +97,25 @@ export function redoAction(set) {
       };
     });
 }
+
+/**
+ * Pushes a single history checkpoint for the current state.
+ * Useful for gesture tools (drag/rotate) that apply many intermediate updates.
+ */
+export function pushHistoryCheckpointAction(set) {
+  return () =>
+    set((state) => {
+      const current = createSnapshot(state);
+      const last = state._history.past[state._history.past.length - 1];
+
+      // Avoid duplicate checkpoints when no tracked state changed.
+      if (last && snapshotsEqual(last, current)) return state;
+
+      return {
+        _history: {
+          past: [...state._history.past, current].slice(-MAX_HISTORY),
+          future: [],
+        },
+      };
+    });
+}

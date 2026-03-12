@@ -42,13 +42,21 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const selectText = useEditorStore((state) => state.selectText);
   const smartRowSelect = useEditorStore((state) => state.smartRowSelect);
   const moveSeats = useEditorStore((state) => state.moveSeats);
+  const moveSeatsPreview = useEditorStore((state) => state.moveSeatsPreview);
   const moveTexts = useEditorStore((state) => state.moveTexts);
+  const moveTextsPreview = useEditorStore((state) => state.moveTextsPreview);
   const marqueeSelect = useEditorStore((state) => state.marqueeSelect);
   const eraseSeat = useEditorStore((state) => state.eraseSeat);
   const eraseText = useEditorStore((state) => state.eraseText);
   const commitRow = useEditorStore((state) => state.commitRow);
   const commitArc = useEditorStore((state) => state.commitArc);
   const rotateSelection = useEditorStore((state) => state.rotateSelection);
+  const rotateSelectionPreview = useEditorStore(
+    (state) => state.rotateSelectionPreview,
+  );
+  const pushHistoryCheckpoint = useEditorStore(
+    (state) => state.pushHistoryCheckpoint,
+  );
   const clearSelection = useEditorStore((state) => state.clearSelection);
   const copySelection = useEditorStore((state) => state.copySelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
@@ -62,13 +70,17 @@ function EditorCanvas({ centerOnSeatsRef }) {
       selectText,
       smartRowSelect,
       moveSeats,
+      moveSeatsPreview,
       moveTexts,
+      moveTextsPreview,
       marqueeSelect,
       eraseSeat,
       eraseText,
       commitRow,
       commitArc,
       rotateSelection,
+      rotateSelectionPreview,
+      pushHistoryCheckpoint,
       clearSelection,
       setEraseHover,
     }),
@@ -78,13 +90,17 @@ function EditorCanvas({ centerOnSeatsRef }) {
       selectText,
       smartRowSelect,
       moveSeats,
+      moveSeatsPreview,
       moveTexts,
+      moveTextsPreview,
       marqueeSelect,
       eraseSeat,
       eraseText,
       commitRow,
       commitArc,
       rotateSelection,
+      rotateSelectionPreview,
+      pushHistoryCheckpoint,
       clearSelection,
       setEraseHover,
     ],

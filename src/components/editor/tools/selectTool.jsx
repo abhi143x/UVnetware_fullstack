@@ -6,9 +6,12 @@ export class SelectTool {
     this.selectText = storeActions.selectText;
     this.smartRowSelect = storeActions.smartRowSelect;
     this.moveSeats = storeActions.moveSeats;
+    this.moveSeatsPreview = storeActions.moveSeatsPreview;
     this.moveTexts = storeActions.moveTexts;
+    this.moveTextsPreview = storeActions.moveTextsPreview;
     this.marqueeSelect = storeActions.marqueeSelect;
     this.clearSelection = storeActions.clearSelection;
+    this.pushHistoryCheckpoint = storeActions.pushHistoryCheckpoint;
   }
 
   handleMouseDown(event, worldPoint, context) {
@@ -238,18 +241,21 @@ export class SelectTool {
       baseSeatPositions,
       baseTextPositions,
       hasMoved: false,
+      historyCaptured: false,
     };
   }
 
   updateDrag(worldPoint, session) {
     const deltaX = worldPoint.x - session.startPoint.x;
     const deltaY = worldPoint.y - session.startPoint.y;
+    const crossedThreshold = Math.abs(deltaX) + Math.abs(deltaY) > 5;
+    const hasMoved = session.hasMoved || crossedThreshold;
 
-    if (!session.hasMoved && Math.abs(deltaX) + Math.abs(deltaY) > 5) {
-      session.hasMoved = true;
-    }
+    if (hasMoved) {
+      if (!session.historyCaptured) {
+        this.pushHistoryCheckpoint?.();
+      }
 
-    if (session.hasMoved) {
       // Update positions (this would trigger re-renders)
       const newSeatPositions = [];
       session.baseSeatPositions.forEach((pos, id) => {
@@ -261,11 +267,23 @@ export class SelectTool {
         newTextPositions.push({ id, x: pos.x + deltaX, y: pos.y + deltaY });
       });
 
-      this.moveSeats(newSeatPositions);
-      this.moveTexts(newTextPositions);
+      const moveSeatsAction = this.moveSeatsPreview || this.moveSeats;
+      const moveTextsAction = this.moveTextsPreview || this.moveTexts;
+
+      moveSeatsAction?.(newSeatPositions);
+      moveTextsAction?.(newTextPositions);
+
+      return {
+        ...session,
+        hasMoved: true,
+        historyCaptured: true,
+      };
     }
 
-    return session;
+    return {
+      ...session,
+      hasMoved,
+    };
   }
 
   commitDrag(_session) {

@@ -1,6 +1,6 @@
 import { useEditorStore } from "./store/editorStore";
 import { TOOL_SELECT } from "./constants/tools";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // ── tiny primitives ──────────────────────────────────────────────────────────
 
@@ -17,7 +17,9 @@ function SectionHeader({ children }) {
 
 function Field({ label, children, row = false }) {
   return (
-    <div className={`flex ${row ? "items-center justify-between" : "flex-col gap-1.5"}`}>
+    <div
+      className={`flex ${row ? "items-center justify-between" : "flex-col gap-1.5"}`}
+    >
       <label className="text-[10px] text-[#6b7a94] font-medium tracking-wide shrink-0 w-16">
         {label}
       </label>
@@ -54,14 +56,17 @@ function Select({ children, className = "", ...props }) {
 function StatusBadge({ value }) {
   const map = {
     available: { dot: "#4ade80", label: "Available" },
-    reserved:  { dot: "#facc15", label: "Reserved" },
-    sold:      { dot: "#f87171", label: "Sold" },
-    locked:    { dot: "#94a3b8", label: "Locked" },
+    reserved: { dot: "#facc15", label: "Reserved" },
+    sold: { dot: "#f87171", label: "Sold" },
+    locked: { dot: "#94a3b8", label: "Locked" },
   };
   const s = map[value] || map.available;
   return (
     <div className="flex items-center gap-1.5">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ background: s.dot }}
+      />
       <span className="text-[11px] text-white/60">{s.label}</span>
     </div>
   );
@@ -72,33 +77,48 @@ function StatusBadge({ value }) {
 function PropertiesPanel() {
   const selectedSeatIds = useEditorStore((s) => s.selectedSeatIds);
   const selectedTextIds = useEditorStore((s) => s.selectedTextIds);
-  const seats           = useEditorStore((s) => s.seats);
-  const texts           = useEditorStore((s) => s.texts);
-  const categories      = useEditorStore((s) => s.categories);
-  const updateSeat      = useEditorStore((s) => s.updateSeat);
-  const updateSeats     = useEditorStore((s) => s.updateSeats);
-  const updateText      = useEditorStore((s) => s.updateText);
-  const clearSelection  = useEditorStore((s) => s.clearSelection);
-  const setActiveTool   = useEditorStore((s) => s.setActiveTool);
-  const addCategory     = useEditorStore((s) => s.addCategory);
-  const updateCategory  = useEditorStore((s) => s.updateCategory);
-  const removeCategory  = useEditorStore((s) => s.removeCategory);
+  const seats = useEditorStore((s) => s.seats);
+  const texts = useEditorStore((s) => s.texts);
+  const categories = useEditorStore((s) => s.categories);
+  const updateSeat = useEditorStore((s) => s.updateSeat);
+  const updateSeats = useEditorStore((s) => s.updateSeats);
+  const updateText = useEditorStore((s) => s.updateText);
+  const updateTextPreview = useEditorStore((s) => s.updateTextPreview);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
+  const setActiveTool = useEditorStore((s) => s.setActiveTool);
+  const addCategory = useEditorStore((s) => s.addCategory);
+  const updateCategory = useEditorStore((s) => s.updateCategory);
+  const removeCategory = useEditorStore((s) => s.removeCategory);
+  const pushHistoryCheckpoint = useEditorStore((s) => s.pushHistoryCheckpoint);
 
-  const selectedSeatId = selectedSeatIds.length === 1 ? selectedSeatIds[0] : null;
-  const selectedSeat   = selectedSeatId ? seats.find((s) => s.id === selectedSeatId) : null;
-  const selectedTextId = selectedTextIds.length === 1 ? selectedTextIds[0] : null;
-  const selectedText   = selectedTextId ? texts.find((t) => t.id === selectedTextId) : null;
+  const selectedSeatId =
+    selectedSeatIds.length === 1 ? selectedSeatIds[0] : null;
+  const selectedSeat = selectedSeatId
+    ? seats.find((s) => s.id === selectedSeatId)
+    : null;
+  const selectedTextId =
+    selectedTextIds.length === 1 ? selectedTextIds[0] : null;
+  const selectedText = selectedTextId
+    ? texts.find((t) => t.id === selectedTextId)
+    : null;
 
-  const isMultipleSeats  = selectedSeatIds.length > 1;
+  const isMultipleSeats = selectedSeatIds.length > 1;
   const hasSeatsSelected = selectedSeatIds.length > 0;
-  const selectedSeats    = hasSeatsSelected ? seats.filter((s) => selectedSeatIds.includes(s.id)) : [];
+  const selectedSeats = hasSeatsSelected
+    ? seats.filter((s) => selectedSeatIds.includes(s.id))
+    : [];
 
-  const [newCategoryName,  setNewCategoryName]  = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#5fa7ff");
   const [newCategoryPrice, setNewCategoryPrice] = useState("");
   const [catOpen, setCatOpen] = useState(false);
+  const rotateGestureActiveRef = useRef(false);
+  const rotateCheckpointCapturedRef = useRef(false);
 
-  const handleApply = () => { clearSelection(); setActiveTool(TOOL_SELECT); };
+  const handleApply = () => {
+    clearSelection();
+    setActiveTool(TOOL_SELECT);
+  };
 
   const handleSeatUpdate = (field, value) => {
     if (isMultipleSeats) updateSeats(selectedSeatIds, { [field]: value });
@@ -114,19 +134,30 @@ function PropertiesPanel() {
   if (!hasSeatsSelected && !selectedText) return null;
 
   const MIXED = "__mixed__";
-  const commonCategory = isMultipleSeats ? getCommonSeatValue("category") : (selectedSeat?.category ?? null);
-  const commonStatus   = isMultipleSeats ? getCommonSeatValue("status")   : (selectedSeat?.status   ?? "available");
-  const commonPrice    = isMultipleSeats ? getCommonSeatValue("price")    : (selectedSeat?.price    ?? null);
+  const commonCategory = isMultipleSeats
+    ? getCommonSeatValue("category")
+    : (selectedSeat?.category ?? null);
+  const commonStatus = isMultipleSeats
+    ? getCommonSeatValue("status")
+    : (selectedSeat?.status ?? "available");
+  const commonPrice = isMultipleSeats
+    ? getCommonSeatValue("price")
+    : (selectedSeat?.price ?? null);
 
   const categoryValueForSelect = isMultipleSeats
-    ? (commonCategory === null ? MIXED : commonCategory || "")
-    : (commonCategory || "");
+    ? commonCategory === null
+      ? MIXED
+      : commonCategory || ""
+    : commonCategory || "";
 
   const statusValueForSelect = isMultipleSeats
-    ? (commonStatus === null ? MIXED : commonStatus || "available")
-    : (commonStatus || "available");
+    ? commonStatus === null
+      ? MIXED
+      : commonStatus || "available"
+    : commonStatus || "available";
 
-  const selectedCategoryForInfo = categories.find((c) => c.id === commonCategory) || null;
+  const selectedCategoryForInfo =
+    categories.find((c) => c.id === commonCategory) || null;
 
   const applyCategoryPrice = () => {
     const p = selectedCategoryForInfo?.price;
@@ -137,9 +168,47 @@ function PropertiesPanel() {
   const handleAddCategory = () => {
     const name = newCategoryName.trim();
     if (!name) return;
-    const parsed = newCategoryPrice === "" ? null : parseFloat(newCategoryPrice);
-    addCategory({ name, color: newCategoryColor, price: Number.isNaN(parsed) ? null : parsed });
-    setNewCategoryName(""); setNewCategoryColor("#5fa7ff"); setNewCategoryPrice("");
+    const parsed =
+      newCategoryPrice === "" ? null : parseFloat(newCategoryPrice);
+    addCategory({
+      name,
+      color: newCategoryColor,
+      price: Number.isNaN(parsed) ? null : parsed,
+    });
+    setNewCategoryName("");
+    setNewCategoryColor("#5fa7ff");
+    setNewCategoryPrice("");
+  };
+
+  const beginRotateGesture = () => {
+    rotateGestureActiveRef.current = true;
+  };
+
+  const endRotateGesture = () => {
+    rotateGestureActiveRef.current = false;
+    rotateCheckpointCapturedRef.current = false;
+  };
+
+  const handleRotateSliderChange = (value) => {
+    if (!selectedText) return;
+
+    if (
+      rotateGestureActiveRef.current &&
+      !rotateCheckpointCapturedRef.current
+    ) {
+      pushHistoryCheckpoint?.();
+      rotateCheckpointCapturedRef.current = true;
+    }
+
+    const nextRotate = parseFloat(value);
+    if (!Number.isFinite(nextRotate)) return;
+
+    if (rotateGestureActiveRef.current) {
+      updateTextPreview(selectedText.id, { rotate: nextRotate });
+      return;
+    }
+
+    updateText(selectedText.id, { rotate: nextRotate });
   };
 
   return (
@@ -158,7 +227,9 @@ function PropertiesPanel() {
       >
         <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#587cb3]">
           {hasSeatsSelected
-            ? isMultipleSeats ? `${selectedSeatIds.length} Seats` : "Seat"
+            ? isMultipleSeats
+              ? `${selectedSeatIds.length} Seats`
+              : "Seat"
             : "Text"}
         </span>
         {selectedSeat && (
@@ -167,7 +238,6 @@ function PropertiesPanel() {
       </div>
 
       <div className="flex flex-col gap-5 p-4 flex-1">
-
         {/* ── SEAT SECTION ── */}
         {hasSeatsSelected && (
           <>
@@ -196,7 +266,9 @@ function PropertiesPanel() {
                   <Field label="Row">
                     <Input
                       value={selectedSeat.row || ""}
-                      onChange={(e) => handleSeatUpdate("row", e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        handleSeatUpdate("row", e.target.value.toUpperCase())
+                      }
                       placeholder="A"
                     />
                   </Field>
@@ -205,7 +277,10 @@ function PropertiesPanel() {
                       type="number"
                       value={selectedSeat.number || ""}
                       onChange={(e) =>
-                        handleSeatUpdate("number", e.target.value ? parseInt(e.target.value) : null)
+                        handleSeatUpdate(
+                          "number",
+                          e.target.value ? parseInt(e.target.value) : null,
+                        )
                       }
                       placeholder="1"
                     />
@@ -228,13 +303,19 @@ function PropertiesPanel() {
                       if (v !== MIXED) handleSeatUpdate("category", v || null);
                     }}
                   >
-                    {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
+                    {isMultipleSeats && (
+                      <option value={MIXED}>— Mixed —</option>
+                    )}
                     <option value="">None</option>
                     {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
                     ))}
                   </Select>
-                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">▾</span>
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">
+                    ▾
+                  </span>
                 </div>
               </Field>
 
@@ -242,18 +323,28 @@ function PropertiesPanel() {
               {selectedCategoryForInfo && (
                 <div
                   className="flex items-center justify-between rounded-md px-3 py-2"
-                  style={{ background: "rgba(88,124,179,0.08)", border: "1px solid rgba(88,124,179,0.2)" }}
+                  style={{
+                    background: "rgba(88,124,179,0.08)",
+                    border: "1px solid rgba(88,124,179,0.2)",
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <span
                       className="h-2.5 w-2.5 rounded-sm"
-                      style={{ background: selectedCategoryForInfo.color, boxShadow: `0 0 6px ${selectedCategoryForInfo.color}60` }}
+                      style={{
+                        background: selectedCategoryForInfo.color,
+                        boxShadow: `0 0 6px ${selectedCategoryForInfo.color}60`,
+                      }}
                     />
-                    <span className="text-[11px] text-white/70">{selectedCategoryForInfo.name}</span>
+                    <span className="text-[11px] text-white/70">
+                      {selectedCategoryForInfo.name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-white/40">
-                      {selectedCategoryForInfo.price != null ? `$${selectedCategoryForInfo.price}` : "—"}
+                      {selectedCategoryForInfo.price != null
+                        ? `$${selectedCategoryForInfo.price}`
+                        : "—"}
                     </span>
                     <button
                       type="button"
@@ -279,28 +370,43 @@ function PropertiesPanel() {
                       if (v !== MIXED) handleSeatUpdate("status", v);
                     }}
                   >
-                    {isMultipleSeats && <option value={MIXED}>— Mixed —</option>}
+                    {isMultipleSeats && (
+                      <option value={MIXED}>— Mixed —</option>
+                    )}
                     <option value="available">Available</option>
                     <option value="reserved">Reserved</option>
                     <option value="sold">Sold</option>
                     <option value="locked">Locked</option>
                   </Select>
-                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">▾</span>
+                  <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/30">
+                    ▾
+                  </span>
                 </div>
               </Field>
 
               {/* Price */}
               <Field label="Price">
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">
+                    $
+                  </span>
                   <Input
                     type="number"
                     step="0.01"
-                    value={isMultipleSeats ? (commonPrice ?? "") : (selectedSeat?.price ?? "")}
-                    onChange={(e) =>
-                      handleSeatUpdate("price", e.target.value ? parseFloat(e.target.value) : null)
+                    value={
+                      isMultipleSeats
+                        ? (commonPrice ?? "")
+                        : (selectedSeat?.price ?? "")
                     }
-                    placeholder={isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"}
+                    onChange={(e) =>
+                      handleSeatUpdate(
+                        "price",
+                        e.target.value ? parseFloat(e.target.value) : null,
+                      )
+                    }
+                    placeholder={
+                      isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"
+                    }
                     className="pl-6"
                   />
                 </div>
@@ -320,7 +426,11 @@ function PropertiesPanel() {
                   </span>
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
-                <span className={`ml-2 text-[10px] text-white/30 transition-transform ${catOpen ? "rotate-180" : ""}`}>▾</span>
+                <span
+                  className={`ml-2 text-[10px] text-white/30 transition-transform ${catOpen ? "rotate-180" : ""}`}
+                >
+                  ▾
+                </span>
               </button>
 
               {catOpen && (
@@ -329,7 +439,10 @@ function PropertiesPanel() {
                     <div
                       key={cat.id}
                       className="rounded-md p-2.5 flex flex-col gap-2"
-                      style={{ background: "#0c1017", border: "1px solid rgba(255,255,255,0.06)" }}
+                      style={{
+                        background: "#0c1017",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
                     >
                       <div className="flex items-center gap-2">
                         <div
@@ -339,7 +452,9 @@ function PropertiesPanel() {
                           <input
                             type="color"
                             value={cat.color || "#5fa7ff"}
-                            onChange={(e) => updateCategory(cat.id, { color: e.target.value })}
+                            onChange={(e) =>
+                              updateCategory(cat.id, { color: e.target.value })
+                            }
                             className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                             title="Color"
                           />
@@ -350,7 +465,9 @@ function PropertiesPanel() {
                         </div>
                         <Input
                           value={cat.name || ""}
-                          onChange={(e) => updateCategory(cat.id, { name: e.target.value })}
+                          onChange={(e) =>
+                            updateCategory(cat.id, { name: e.target.value })
+                          }
                           placeholder="Category name"
                           className="flex-1"
                         />
@@ -364,9 +481,13 @@ function PropertiesPanel() {
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">Price</span>
+                        <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">
+                          Price
+                        </span>
                         <div className="relative flex-1">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">
+                            $
+                          </span>
                           <Input
                             type="number"
                             step="0.01"
@@ -374,7 +495,9 @@ function PropertiesPanel() {
                             onChange={(e) => {
                               const v = e.target.value;
                               const p = v === "" ? null : parseFloat(v);
-                              updateCategory(cat.id, { price: Number.isNaN(p) ? null : p });
+                              updateCategory(cat.id, {
+                                price: Number.isNaN(p) ? null : p,
+                              });
                             }}
                             placeholder="—"
                             className="pl-6"
@@ -387,7 +510,10 @@ function PropertiesPanel() {
                   {/* Add new category */}
                   <div
                     className="rounded-md p-2.5 flex flex-col gap-2"
-                    style={{ background: "#0c1017", border: "1px dashed rgba(88,124,179,0.25)" }}
+                    style={{
+                      background: "#0c1017",
+                      border: "1px dashed rgba(88,124,179,0.25)",
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -400,7 +526,10 @@ function PropertiesPanel() {
                           onChange={(e) => setNewCategoryColor(e.target.value)}
                           className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                         />
-                        <span className="block w-full h-full" style={{ background: newCategoryColor }} />
+                        <span
+                          className="block w-full h-full"
+                          style={{ background: newCategoryColor }}
+                        />
                       </div>
                       <Input
                         value={newCategoryName}
@@ -410,9 +539,13 @@ function PropertiesPanel() {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">Price</span>
+                      <span className="text-[10px] text-[#6b7a94] w-10 shrink-0">
+                        Price
+                      </span>
                       <div className="relative flex-1">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">$</span>
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">
+                          $
+                        </span>
                         <Input
                           type="number"
                           step="0.01"
@@ -448,7 +581,9 @@ function PropertiesPanel() {
               <Field label="Caption">
                 <Input
                   value={selectedText.content}
-                  onChange={(e) => updateText(selectedText.id, { content: e.target.value })}
+                  onChange={(e) =>
+                    updateText(selectedText.id, { content: e.target.value })
+                  }
                 />
               </Field>
             </div>
@@ -460,11 +595,19 @@ function PropertiesPanel() {
               <Field label="Size" row>
                 <div
                   className="flex items-center rounded-md overflow-hidden"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "#0c1017" }}
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "#0c1017",
+                  }}
                 >
                   <button
                     onClick={() =>
-                      updateText(selectedText.id, { fontSize: Math.max(8, (selectedText.fontSize || 20) - 1) })
+                      updateText(selectedText.id, {
+                        fontSize: Math.max(
+                          8,
+                          (selectedText.fontSize || 20) - 1,
+                        ),
+                      })
                     }
                     className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors text-sm"
                   >
@@ -475,7 +618,12 @@ function PropertiesPanel() {
                   </span>
                   <button
                     onClick={() =>
-                      updateText(selectedText.id, { fontSize: Math.min(120, (selectedText.fontSize || 20) + 1) })
+                      updateText(selectedText.id, {
+                        fontSize: Math.min(
+                          120,
+                          (selectedText.fontSize || 20) + 1,
+                        ),
+                      })
                     }
                     className="w-7 h-7 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors text-sm"
                   >
@@ -488,11 +636,17 @@ function PropertiesPanel() {
               <Field label="Color" row>
                 <div
                   className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5"
-                  style={{ background: "#0c1017", border: "1px solid rgba(255,255,255,0.08)" }}
+                  style={{
+                    background: "#0c1017",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
                 >
                   <div
                     className="h-4 w-4 rounded-sm shrink-0"
-                    style={{ background: selectedText.fill || "#c9d6ea", border: "1px solid rgba(255,255,255,0.15)" }}
+                    style={{
+                      background: selectedText.fill || "#c9d6ea",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                    }}
                   />
                   <span className="text-[11px] text-white/60 tabular-nums">
                     {selectedText.fill || "#c9d6ea"}
@@ -500,7 +654,9 @@ function PropertiesPanel() {
                   <input
                     type="color"
                     value={selectedText.fill || "#c9d6ea"}
-                    onChange={(e) => updateText(selectedText.id, { fill: e.target.value })}
+                    onChange={(e) =>
+                      updateText(selectedText.id, { fill: e.target.value })
+                    }
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                 </div>
@@ -515,13 +671,18 @@ function PropertiesPanel() {
                   <button
                     onClick={() =>
                       updateText(selectedText.id, {
-                        fontWeight: selectedText.fontWeight === "bold" ? "normal" : "bold",
+                        fontWeight:
+                          selectedText.fontWeight === "bold"
+                            ? "normal"
+                            : "bold",
                       })
                     }
                     className={`w-9 h-7 font-bold text-sm transition-all
-                      ${selectedText.fontWeight === "bold"
-                        ? "bg-[#587cb3] text-white"
-                        : "bg-[#0c1017] text-white/35 hover:text-white/60"}`}
+                      ${
+                        selectedText.fontWeight === "bold"
+                          ? "bg-[#587cb3] text-white"
+                          : "bg-[#0c1017] text-white/35 hover:text-white/60"
+                      }`}
                   >
                     B
                   </button>
@@ -529,13 +690,18 @@ function PropertiesPanel() {
                   <button
                     onClick={() =>
                       updateText(selectedText.id, {
-                        fontStyle: selectedText.fontStyle === "italic" ? "normal" : "italic",
+                        fontStyle:
+                          selectedText.fontStyle === "italic"
+                            ? "normal"
+                            : "italic",
                       })
                     }
                     className={`w-9 h-7 italic text-sm transition-all
-                      ${selectedText.fontStyle === "italic"
-                        ? "bg-[#587cb3] text-white"
-                        : "bg-[#0c1017] text-white/35 hover:text-white/60"}`}
+                      ${
+                        selectedText.fontStyle === "italic"
+                          ? "bg-[#587cb3] text-white"
+                          : "bg-[#0c1017] text-white/35 hover:text-white/60"
+                      }`}
                   >
                     I
                   </button>
@@ -554,15 +720,23 @@ function PropertiesPanel() {
                     max="180"
                     step="1"
                     value={selectedText.rotate ?? 0}
-                    onChange={(e) =>
-                      updateText(selectedText.id, { rotate: parseFloat(e.target.value) })
-                    }
+                    onPointerDown={beginRotateGesture}
+                    onPointerUp={endRotateGesture}
+                    onPointerCancel={endRotateGesture}
+                    onFocus={beginRotateGesture}
+                    onBlur={endRotateGesture}
+                    onChange={(e) => handleRotateSliderChange(e.target.value)}
                     className="w-full accent-[#587cb3]"
                     style={{ marginLeft: "0.5rem" }}
                   />
-                  <div className="flex justify-between text-[9px] text-white/20 px-0.5" style={{ marginLeft: "0.5rem" }}>
+                  <div
+                    className="flex justify-between text-[9px] text-white/20 px-0.5"
+                    style={{ marginLeft: "0.5rem" }}
+                  >
                     <span>-180°</span>
-                    <span className="text-white/40 tabular-nums">{selectedText.rotate ?? 0}°</span>
+                    <span className="text-white/40 tabular-nums">
+                      {selectedText.rotate ?? 0}°
+                    </span>
                     <span>180°</span>
                   </div>
                 </div>
