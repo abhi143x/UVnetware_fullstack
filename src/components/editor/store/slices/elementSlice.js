@@ -341,27 +341,45 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         if (state.activeTool !== TOOL_ERASER) return state;
 
         const selectedSet = new Set(state.selectedSeatIds);
+
+        let updatedSeats;
+
         if (selectedSet.has(seatId)) {
-          return {
-            seats: state.seats.filter((s) => !selectedSet.has(s.id)),
-            selectedSeatIds: [],
-          };
+          updatedSeats = state.seats.filter((s) => !selectedSet.has(s.id));
+        } else {
+          updatedSeats = state.seats.filter((s) => s.id !== seatId);
         }
-        return { seats: state.seats.filter((s) => s.id !== seatId) };
-      }),
 
-    eraseText: (textId) =>
-      trackedSet((state) => {
-        if (state.activeTool !== TOOL_ERASER) return state;
+        // ---- FIX: group seats by row safely ----
+        const rows = {};
 
-        const selectedSet = new Set(state.selectedTextIds);
-        if (selectedSet.has(textId)) {
-          return {
-            texts: state.texts.filter((t) => !selectedSet.has(t.id)),
-            selectedTextIds: [],
-          };
-        }
-        return { texts: state.texts.filter((t) => t.id !== textId) };
+        updatedSeats.forEach((seat) => {
+          const row = seat.row || "A";   // ensure row exists
+          if (!rows[row]) rows[row] = [];
+          rows[row].push(seat);
+        });
+
+        const finalSeats = [];
+
+        Object.keys(rows).forEach((row) => {
+          const rowSeats = rows[row].sort((a, b) => a.x - b.x);
+
+          rowSeats.forEach((seat, index) => {
+            const number = index + 1;
+
+            finalSeats.push({
+              ...seat,
+              row,
+              number,
+              label: generateSeatLabel(row, number),
+            });
+          });
+        });
+
+        return {
+          seats: finalSeats,
+          selectedSeatIds: [],
+        };
       }),
 
     // ─── Commit Row / Arc ─────────────────────────────────────────────────────
