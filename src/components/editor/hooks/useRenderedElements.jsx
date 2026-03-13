@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
-import { TOOL_ERASER } from '../constants/tools'
-import SeatComponent from '../canvas/SeatComponent'
-import TextComponent from '../canvas/TextComponent'
+import { useMemo } from "react";
+import { TOOL_ERASER } from "../constants/tools";
+import SeatComponent from "../canvas/SeatComponent";
+import TextComponent from "../canvas/TextComponent";
 
 /**
  * Renders seats and texts as React elements for the SVG canvas.
@@ -23,31 +23,31 @@ export function useRenderedElements(
   const selectedSeatIdSet = useMemo(
     () => new Set(selectedSeatIds),
     [selectedSeatIds],
-  )
+  );
   const selectedTextIdSet = useMemo(
     () => new Set(selectedTextIds),
     [selectedTextIds],
-  )
+  );
 
   // Map category id -> color for quick lookup
   const categoryColorMap = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
     categories.forEach((cat) => {
       if (cat?.id && cat?.color) {
-        map.set(cat.id, cat.color)
+        map.set(cat.id, cat.color);
       }
-    })
-    return map
-  }, [categories])
+    });
+    return map;
+  }, [categories]);
 
   const renderedSeats = useMemo(() => {
     return seats.map((seat) => {
-      const isSelected = selectedSeatIdSet.has(seat.id)
+      const isSelected = selectedSeatIdSet.has(seat.id);
       const isEraseHovered =
-        activeTool === TOOL_ERASER && seat.id === hoveredSeatId
+        activeTool === TOOL_ERASER && seat.id === hoveredSeatId;
       const categoryColor = seat.category
         ? categoryColorMap.get(seat.category) || null
-        : null
+        : null;
 
       return (
         <SeatComponent
@@ -57,21 +57,15 @@ export function useRenderedElements(
           isEraseHovered={isEraseHovered}
           categoryColor={categoryColor}
         />
-      )
-    })
-  }, [
-    seats,
-    selectedSeatIdSet,
-    activeTool,
-    hoveredSeatId,
-    categoryColorMap,
-  ])
+      );
+    });
+  }, [seats, selectedSeatIdSet, activeTool, hoveredSeatId, categoryColorMap]);
 
   const renderedTexts = useMemo(() => {
     return texts.map((textItem) => {
-      const isSelected = selectedTextIdSet.has(textItem.id)
+      const isSelected = selectedTextIdSet.has(textItem.id);
       const isEraseHovered =
-        activeTool === TOOL_ERASER && textItem.id === hoveredTextId
+        activeTool === TOOL_ERASER && textItem.id === hoveredTextId;
 
       return (
         <TextComponent
@@ -80,12 +74,12 @@ export function useRenderedElements(
           isSelected={isSelected}
           isEraseHovered={isEraseHovered}
         />
-      )
-    })
-  }, [texts, selectedTextIdSet, activeTool, hoveredTextId])
+      );
+    });
+  }, [texts, selectedTextIdSet, activeTool, hoveredTextId]);
 
   return {
     renderedSeats,
     renderedTexts,
-  }
+  };
 }
