@@ -11,6 +11,7 @@ import Documentation from "../components/pages/Documentation.jsx";
 
 import ScrollToTop from "../components/utils/ScrollToTop.jsx";
 import Profile from "../components/pages/Profile";
+import MyLayouts from "../components/pages/MyLayouts.jsx";
 
 export default function AppRoutes() {
   return (
@@ -88,6 +89,15 @@ export default function AppRoutes() {
             </MainLayout>
           }
         />
+
+        <Route
+  path="/my-layouts"
+  element={
+    <MainLayout>
+      <MyLayouts />
+    </MainLayout>
+  }
+/>
 
         <Route path="/profile" element={<Profile />} />
       </Routes>
