@@ -91,13 +91,13 @@ export default function AppRoutes() {
         />
 
         <Route
-  path="/my-layouts"
-  element={
-    <MainLayout>
-      <MyLayouts />
-    </MainLayout>
-  }
-/>
+          path="/my-layouts"
+          element={
+            <MainLayout>
+              <MyLayouts />
+            </MainLayout>
+          }
+        />
 
         <Route path="/profile" element={<Profile />} />
       </Routes>

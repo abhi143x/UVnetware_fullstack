@@ -19,7 +19,7 @@ function Editor() {
   const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
   const seatCount = useEditorStore((state) => state.seats.length);
-  
+
   const clearLayout = useEditorStore((state) => state.clearLayout);
   const alignSelection = useEditorStore((state) => state.alignSelection);
   const hasSelection = selectedSeatIds.length > 0 || selectedTextIds.length > 0;
@@ -31,9 +31,7 @@ function Editor() {
   const isOverCapacity = seatCount > 500;
 
   const [currentLayoutId, setCurrentLayoutId] = useState(null);
-const [currentLayoutName, setCurrentLayoutName] = useState("");
-
-  
+  const [currentLayoutName, setCurrentLayoutName] = useState("");
 
   useEffect(() => {
     const nav = document.querySelector("nav");
@@ -59,92 +57,92 @@ const [currentLayoutName, setCurrentLayoutName] = useState("");
   }, []);
 
   useEffect(() => {
-  const saved = localStorage.getItem("uvnet_load_layout");
+    const saved = localStorage.getItem("uvnet_load_layout");
 
-  if (saved) {
-    const layout = JSON.parse(saved);
+    if (saved) {
+      const layout = JSON.parse(saved);
 
-    useEditorStore.setState({
-      seats: layout.seats || [],
-      texts: layout.texts || [],
-    });
+      useEditorStore.setState({
+        seats: layout.seats || [],
+        texts: layout.texts || [],
+      });
 
-    setCurrentLayoutId(layout.id);
-    setCurrentLayoutName(layout.name);
+      setCurrentLayoutId(layout.id);
+      setCurrentLayoutName(layout.name);
 
-    localStorage.removeItem("uvnet_load_layout");
-  }
-}, []);
+      localStorage.removeItem("uvnet_load_layout");
+    }
+  }, []);
 
   function handleSave() {
-  const user = JSON.parse(localStorage.getItem("uvnet_auth_user"));
+    const user = JSON.parse(localStorage.getItem("uvnet_auth_user"));
 
-  if (!user) {
-    alert("Please login first to save layouts.");
-    return;
+    if (!user) {
+      alert("Please login first to save layouts.");
+      return;
+    }
+
+    const layouts =
+      JSON.parse(localStorage.getItem("uvnet_saved_layouts")) || [];
+
+    const seats = useEditorStore.getState().seats;
+    const texts = useEditorStore.getState().texts;
+
+    // CASE 1: Updating existing layout
+    if (currentLayoutId) {
+      const newName = prompt(
+        "Update layout name:",
+        currentLayoutName || "My Layout",
+      );
+
+      if (!newName) return;
+
+      const updatedLayouts = layouts.map((layout) =>
+        layout.id === currentLayoutId
+          ? {
+              ...layout,
+              name: newName,
+              seats,
+              texts,
+              updatedAt: new Date().toISOString(),
+            }
+          : layout,
+      );
+
+      localStorage.setItem(
+        "uvnet_saved_layouts",
+        JSON.stringify(updatedLayouts),
+      );
+
+      setCurrentLayoutName(newName);
+    }
+
+    // CASE 2: Creating new layout
+    else {
+      const layoutName = prompt("Enter layout name:");
+
+      if (!layoutName) return;
+
+      const newLayout = {
+        id: Date.now(),
+        name: layoutName,
+        user: user.email,
+        seats,
+        texts,
+        createdAt: new Date().toISOString(),
+      };
+
+      layouts.push(newLayout);
+
+      localStorage.setItem("uvnet_saved_layouts", JSON.stringify(layouts));
+
+      setCurrentLayoutId(newLayout.id);
+      setCurrentLayoutName(layoutName);
+    }
+
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 2000);
   }
-
-  const layouts =
-    JSON.parse(localStorage.getItem("uvnet_saved_layouts")) || [];
-
-  const seats = useEditorStore.getState().seats;
-  const texts = useEditorStore.getState().texts;
-
-  // CASE 1: Updating existing layout
-  if (currentLayoutId) {
-    const newName = prompt(
-      "Update layout name:",
-      currentLayoutName || "My Layout"
-    );
-
-    if (!newName) return;
-
-    const updatedLayouts = layouts.map((layout) =>
-      layout.id === currentLayoutId
-        ? {
-            ...layout,
-            name: newName,
-            seats,
-            texts,
-            updatedAt: new Date().toISOString(),
-          }
-        : layout
-    );
-
-    localStorage.setItem(
-      "uvnet_saved_layouts",
-      JSON.stringify(updatedLayouts)
-    );
-
-    setCurrentLayoutName(newName);
-  }
-
-  // CASE 2: Creating new layout
-  else {
-    const layoutName = prompt("Enter layout name:");
-
-    if (!layoutName) return;
-
-    const newLayout = {
-      id: Date.now(),
-      name: layoutName,
-      user: user.email,
-      seats,
-      texts,
-      createdAt: new Date().toISOString(),
-    };
-
-    layouts.push(newLayout);
-
-    localStorage.setItem("uvnet_saved_layouts", JSON.stringify(layouts));
-
-    setCurrentLayoutId(newLayout.id);
-    setCurrentLayoutName(layoutName);
-  }
-
-  setSaveStatus("saved");
-  setTimeout(() => setSaveStatus("idle"), 2000);
-}
 
   function handleClear() {
     if (seatCount === 0) return;
