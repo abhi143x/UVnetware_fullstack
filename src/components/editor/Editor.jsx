@@ -4,6 +4,7 @@ import Toolbar from "./Toolbar";
 import UndoRedoControls from "./history/UndoRedoControls";
 import PropertiesPanel from "./PropertiesPanel";
 import TemplatesPanel from "./TemplatesPanel";
+import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
 import { useEditorStore } from "./store/editorStore";
 import { TOOL_SELECT } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
@@ -269,7 +270,12 @@ function Editor() {
         {/* Crisp inspector panel overlay */}
         {showProperties && (
           <div className="absolute bottom-3 right-3 top-18 z-20 overflow-hidden rounded-xl border border-white/12 bg-[#0b1118]/96 shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur-md">
-            <PropertiesPanel />
+            <div className="flex flex-col h-full">
+              <SelectedSeatSpacingControl />
+              <div className="flex-1 min-h-0">
+                <PropertiesPanel />
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -193,7 +193,13 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
       Array.isArray(persisted.categories) && persisted.categories.length > 0
         ? persisted.categories
         : DEFAULT_CATEGORIES,
-    nextRowIndex: persisted.nextRowIndex || 0,
+    nextRowIndex: persisted.seats && persisted.seats.length > 0 ? (persisted.nextRowIndex || 0) : 0,
+    
+    // Custom spacing preference for align function
+    customSpacing: persisted.customSpacing || 48, // Remember user's spacing preference
+    
+    // Preview state for real-time spacing adjustments
+    spacingPreview: null, // { seatId: originalX }
 
     // ─── Text & Seat Updates ─────────────────────────────────────────────────
 
@@ -289,6 +295,207 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         return {
           seats: updatedSeats,
           nextRowIndex: deriveNextRowIndexFromSeats(updatedSeats),
+        };
+      }),
+
+    // ─── Selected Seat Spacing Control ─────────────────────────────────────
+
+    updateSelectedSeatsSpacing: (newSpacing) =>
+      trackedSet((state) => {
+        const selectedSeats = state.seats.filter((seat) =>
+          state.selectedSeatIds.includes(seat.id),
+        );
+
+        if (selectedSeats.length < 2) return state;
+
+        // Remember this spacing for future align operations
+        const updatedCustomSpacing = newSpacing;
+
+        // Sort selected seats by x position
+        selectedSeats.sort((a, b) => a.x - b.x);
+
+        // Find the leftmost and rightmost selected seats
+        const leftmostX = selectedSeats[0].x;
+        const rightmostX = selectedSeats[selectedSeats.length - 1].x;
+        const currentRightmostPosition = rightmostX;
+        const newRightmostPosition = leftmostX + ((selectedSeats.length - 1) * newSpacing);
+        
+        // Calculate how much the rightmost seat moved
+        const positionShift = newRightmostPosition - currentRightmostPosition;
+        
+        // Find all seats that come after the rightmost selected seat
+        const seatsToMove = state.seats.filter(seat => 
+          !state.selectedSeatIds.includes(seat.id) && seat.x > currentRightmostPosition
+        );
+
+        const updatedSeats = state.seats.map((seat) => {
+          // Handle selected seats
+          if (state.selectedSeatIds.includes(seat.id)) {
+            // Find the index of this seat in the sorted selected seats
+            const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
+            
+            // Calculate new position based on index and new spacing
+            let targetX = leftmostX + (seatIndex * newSpacing);
+            
+            // Check for overlaps with non-selected seats (only those before the selected area)
+            const seatRadius = 15; // Approximate seat radius
+            const nonSelectedSeats = state.seats.filter(s => 
+              !state.selectedSeatIds.includes(s.id) && s.x <= currentRightmostPosition
+            );
+            
+            for (const otherSeat of nonSelectedSeats) {
+              const distance = Math.abs(targetX - otherSeat.x);
+              const yDistance = Math.abs(seat.y - otherSeat.y);
+              
+              // If seats would overlap (both x and y are too close)
+              if (distance < (seatRadius * 2) && yDistance < (seatRadius * 2)) {
+                // Move the seat to the right of the overlapping seat
+                if (targetX < otherSeat.x) {
+                  targetX = otherSeat.x + (seatRadius * 2) + 5; // Add 5px buffer
+                } else {
+                  targetX = otherSeat.x - (seatRadius * 2) - 5; // Move to left
+                }
+              }
+            }
+            
+            return {
+              ...seat,
+              x: targetX,
+            };
+          }
+          
+          // Handle seats that come after the selected area - move them forward
+          if (seatsToMove.find(s => s.id === seat.id)) {
+            return {
+              ...seat,
+              x: seat.x + positionShift,
+            };
+          }
+          
+          // Other seats remain unchanged
+          return seat;
+        });
+
+        return { 
+          seats: updatedSeats,
+          customSpacing: updatedCustomSpacing // Remember the spacing
+        };
+      }),
+
+    // ─── Spacing Preview Functions ───────────────────────────────────────────
+
+    previewSelectedSeatsSpacing: (newSpacing) =>
+      set((state) => {
+        const selectedSeats = state.seats.filter((seat) =>
+          state.selectedSeatIds.includes(seat.id),
+        );
+
+        if (selectedSeats.length < 2) return state;
+
+        // Store original positions for ALL seats (selected + subsequent) for proper cancel
+        const originalPositions = {};
+        state.seats.forEach(seat => {
+          originalPositions[seat.id] = seat.x;
+        });
+        console.log('Storing original positions for', Object.keys(originalPositions).length, 'seats');
+
+        // Sort selected seats by x position
+        selectedSeats.sort((a, b) => a.x - b.x);
+
+        // Find the leftmost and rightmost selected seats
+        const leftmostX = selectedSeats[0].x;
+        const rightmostX = selectedSeats[selectedSeats.length - 1].x;
+        const currentRightmostPosition = rightmostX;
+        const newRightmostPosition = leftmostX + ((selectedSeats.length - 1) * newSpacing);
+        
+        // Calculate how much the rightmost seat moved
+        const positionShift = newRightmostPosition - currentRightmostPosition;
+        
+        // Find all seats that come after the rightmost selected seat
+        const seatsToMove = state.seats.filter(seat => 
+          !state.selectedSeatIds.includes(seat.id) && seat.x > currentRightmostPosition
+        );
+
+        const updatedSeats = state.seats.map((seat) => {
+          // Handle selected seats
+          if (state.selectedSeatIds.includes(seat.id)) {
+            // Find the index of this seat in the sorted selected seats
+            const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
+            
+            // Calculate new position based on index and new spacing
+            let targetX = leftmostX + (seatIndex * newSpacing);
+            
+            // Check for overlaps with non-selected seats (only those before the selected area)
+            const seatRadius = 15; // Approximate seat radius
+            const nonSelectedSeats = state.seats.filter(s => 
+              !state.selectedSeatIds.includes(s.id) && s.x <= currentRightmostPosition
+            );
+            
+            for (const otherSeat of nonSelectedSeats) {
+              const distance = Math.abs(targetX - otherSeat.x);
+              const yDistance = Math.abs(seat.y - otherSeat.y);
+              
+              // If seats would overlap (both x and y are too close)
+              if (distance < (seatRadius * 2) && yDistance < (seatRadius * 2)) {
+                // Move the seat to the right of the overlapping seat
+                if (targetX < otherSeat.x) {
+                  targetX = otherSeat.x + (seatRadius * 2) + 5; // Add 5px buffer
+                } else {
+                  targetX = otherSeat.x - (seatRadius * 2) - 5; // Move to left
+                }
+              }
+            }
+            
+            return {
+              ...seat,
+              x: targetX,
+            };
+          }
+          
+          // Handle seats that come after the selected area - move them forward in preview
+          if (seatsToMove.find(s => s.id === seat.id)) {
+            return {
+              ...seat,
+              x: seat.x + positionShift,
+            };
+          }
+          
+          // Other seats remain unchanged
+          return seat;
+        });
+
+        return { 
+          seats: updatedSeats,
+          spacingPreview: originalPositions
+        };
+      }),
+
+    clearSpacingPreview: () =>
+      trackedSet((state) => {
+        console.log('clearSpacingPreview called, spacingPreview:', state.spacingPreview);
+        if (!state.spacingPreview) {
+          console.log('No spacingPreview data found');
+          return state;
+        }
+
+        // Restore ALL seats to their original positions from preview data
+        const restoredSeats = state.seats.map((seat) => {
+          const originalX = state.spacingPreview[seat.id];
+          if (originalX !== undefined) {
+            console.log(`Restoring seat ${seat.id} from ${seat.x} to ${originalX}`);
+            return {
+              ...seat,
+              x: originalX, // Restore to original X position
+            };
+          }
+          console.log(`Seat ${seat.id} not in preview data, keeping current position`);
+          return seat;
+        });
+
+        console.log('Restoration complete, clearing spacingPreview');
+        return {
+          seats: restoredSeats,
+          spacingPreview: null,
         };
       }),
 
@@ -548,8 +755,10 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
       // Group seats by row for row-specific alignment
       const seatsByRow = {};
-      selectedSeats.forEach((seat) => {
-        const rowKey = seat.row || "unassigned";
+      
+      // Include all seats (selected and non-selected) to find the correct row Y position
+      state.seats.forEach((seat) => {
+        const rowKey = seat.row || 'unassigned';
         if (!seatsByRow[rowKey]) seatsByRow[rowKey] = [];
         seatsByRow[rowKey].push(seat);
       });
@@ -564,18 +773,27 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           seatsByRow[seat.row].length > 1
         ) {
           const rowSeats = seatsByRow[seat.row];
-
+          
           // Sort by original x position to determine order
           rowSeats.sort((a, b) => a.x - b.x);
           const seatIndex = rowSeats.findIndex((s) => s.id === seat.id);
+          
+          // Find the Y position of all seats in this row (including non-selected)
+          const nonSelectedRowSeats = rowSeats.filter(s => !state.selectedSeatIds.includes(s.id));
+          let targetY = seat.y; // Default to current Y
+          
+          // If there are non-selected seats in the row, use their exact Y position
+          if (nonSelectedRowSeats.length > 0) {
+            // Use the Y position of non-selected seats as reference (no grid snapping)
+            const referenceY = nonSelectedRowSeats[0].y; // Take first non-selected seat's Y
+            targetY = referenceY;
+          } else {
+            // If all seats in row are selected, keep current Y position
+            targetY = seat.y;
+          }
 
-          // Find the average y position of the row for straight alignment
-          const avgY =
-            rowSeats.reduce((sum, s) => sum + s.y, 0) / rowSeats.length;
-          const alignedY = Math.round(avgY / gridSize) * gridSize;
-
-          // Calculate ideal spacing (tighter for better appearance)
-          const baseSpacing = gridSize * 1.2; // 48px spacing for nicer look
+          // Use custom spacing if available, otherwise default
+          const baseSpacing = state.customSpacing || (gridSize * 1.2);
 
           // Find the leftmost seat position and align it to grid
           const leftmostX = Math.min(...rowSeats.map((s) => s.x));
@@ -587,7 +805,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           return {
             ...seat,
             x: targetX,
-            y: alignedY,
+            y: targetY, // Use the calculated Y position
           };
         }
 

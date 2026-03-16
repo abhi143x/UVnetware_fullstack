@@ -6,31 +6,29 @@ const STORAGE_KEY = "uvnetware-layout";
 export function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw)
-      return {
-        seats: [],
-        texts: [],
-        shapes: [],
-        categories: [],
-        nextRowIndex: 0,
-      };
+    if (!raw) return { seats: [], texts: [], categories: [], nextRowIndex: 0, customSpacing: 48 };
     const parsed = JSON.parse(raw);
+    const seats = Array.isArray(parsed.seats) ? parsed.seats : [];
     return {
-      seats: Array.isArray(parsed.seats) ? parsed.seats : [],
+      seats: seats,
       texts: Array.isArray(parsed.texts) ? parsed.texts : [],
       shapes: Array.isArray(parsed.shapes) ? parsed.shapes : [],
       categories: Array.isArray(parsed.categories) ? parsed.categories : [],
-      nextRowIndex:
-        typeof parsed.nextRowIndex === "number" ? parsed.nextRowIndex : 0,
+      nextRowIndex: seats.length > 0 ? (typeof parsed.nextRowIndex === "number" ? parsed.nextRowIndex : 0) : 0,
+      customSpacing: typeof parsed.customSpacing === "number" ? parsed.customSpacing : 48,
     };
   } catch {
-    return {
-      seats: [],
-      texts: [],
-      shapes: [],
-      categories: [],
-      nextRowIndex: 0,
-    };
+    return { seats: [], texts: [], categories: [], nextRowIndex: 0, customSpacing: 48 };
+  }
+}
+
+export function clearStorageCache() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    return true;
+  } catch {
+    return false;
+>>>>>>> 03473ff (feat: Implement real-time seat spacing control with cancel functionality,resolves seat spacing overlap and cancel button issues)
   }
 }
 
@@ -59,11 +57,11 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
       })),
 
     saveLayout: () => {
-      const { seats, texts, shapes, categories, nextRowIndex } = get();
+      const { seats, texts, categories, nextRowIndex, customSpacing } = get();
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ seats, texts, shapes, categories, nextRowIndex }),
+          JSON.stringify({ seats, texts, categories, nextRowIndex, customSpacing }),
         );
         set({ lastSavedAt: Date.now() });
         return true;
@@ -73,9 +71,9 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
     },
 
     exportJSON: () => {
-      const { seats, texts, shapes, categories, nextRowIndex } = get();
+      const { seats, texts, categories, nextRowIndex, customSpacing } = get();
       const data = JSON.stringify(
-        { seats, texts, shapes, categories, nextRowIndex },
+        { seats, texts, categories, nextRowIndex, customSpacing },
         null,
         2,
       );
@@ -99,6 +97,7 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
         selectedShapeIds: [],
         lastSavedAt: null,
         nextRowIndex: 0,
+        customSpacing: 48,
       });
     },
   };
