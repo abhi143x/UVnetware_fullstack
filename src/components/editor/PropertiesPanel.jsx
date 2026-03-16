@@ -1,6 +1,7 @@
 import { useEditorStore } from "./store/editorStore";
 import { TOOL_SELECT } from "./constants/tools";
 import { useRef, useState } from "react";
+import { SHAPE_TYPES, normalizeShapeSize } from "./services/shapeService";
 
 // ── tiny primitives ──────────────────────────────────────────────────────────
 
@@ -72,18 +73,38 @@ function StatusBadge({ value }) {
   );
 }
 
+function rgbaToHex(rgba, fallback = "#5fa7ff") {
+  const match =
+    typeof rgba === "string"
+      ? rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i)
+      : null;
+
+  if (!match) return fallback;
+
+  const [r, g, b] = match
+    .slice(1, 4)
+    .map((value) => Math.max(0, Math.min(255, parseInt(value, 10))));
+
+  return `#${r.toString(16).padStart(2, "0")}${g
+    .toString(16)
+    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 // ── main component ───────────────────────────────────────────────────────────
 
 function PropertiesPanel() {
   const selectedSeatIds = useEditorStore((s) => s.selectedSeatIds);
   const selectedTextIds = useEditorStore((s) => s.selectedTextIds);
+  const selectedShapeIds = useEditorStore((s) => s.selectedShapeIds);
   const seats = useEditorStore((s) => s.seats);
   const texts = useEditorStore((s) => s.texts);
+  const shapes = useEditorStore((s) => s.shapes);
   const categories = useEditorStore((s) => s.categories);
   const updateSeat = useEditorStore((s) => s.updateSeat);
   const updateSeats = useEditorStore((s) => s.updateSeats);
   const updateText = useEditorStore((s) => s.updateText);
   const updateTextPreview = useEditorStore((s) => s.updateTextPreview);
+  const updateShape = useEditorStore((s) => s.updateShape);
   const clearSelection = useEditorStore((s) => s.clearSelection);
   const setActiveTool = useEditorStore((s) => s.setActiveTool);
   const addCategory = useEditorStore((s) => s.addCategory);
@@ -100,6 +121,11 @@ function PropertiesPanel() {
     selectedTextIds.length === 1 ? selectedTextIds[0] : null;
   const selectedText = selectedTextId
     ? texts.find((t) => t.id === selectedTextId)
+    : null;
+  const selectedShapeId =
+    selectedShapeIds.length === 1 ? selectedShapeIds[0] : null;
+  const selectedShape = selectedShapeId
+    ? shapes.find((shape) => shape.id === selectedShapeId)
     : null;
 
   const isMultipleSeats = selectedSeatIds.length > 1;
@@ -131,7 +157,26 @@ function PropertiesPanel() {
     return selectedSeats.every((s) => s?.[field] === first) ? first : null;
   };
 
-  if (!hasSeatsSelected && !selectedText) return null;
+  if (!hasSeatsSelected && !selectedText && !selectedShape) return null;
+
+  const handleShapeDimensionChange = (field, rawValue) => {
+    if (!selectedShape) return;
+    const parsed = parseFloat(rawValue);
+    if (!Number.isFinite(parsed)) return;
+
+    if (selectedShape.type === SHAPE_TYPES.POLYGON) {
+      return;
+    }
+
+    const nextWidth = field === "width" ? parsed : selectedShape.width || 80;
+    const nextHeight = field === "height" ? parsed : selectedShape.height || 80;
+    const normalized = normalizeShapeSize(
+      selectedShape.type,
+      nextWidth,
+      nextHeight,
+    );
+    updateShape(selectedShape.id, normalized);
+  };
 
   const MIXED = "__mixed__";
   const commonCategory = isMultipleSeats
@@ -231,7 +276,9 @@ function PropertiesPanel() {
             ? isMultipleSeats
               ? `${selectedSeatIds.length} Seats`
               : "Seat"
-            : "Text"}
+            : selectedShape
+              ? "Shape"
+              : "Text"}
         </span>
         {selectedSeat && (
           <StatusBadge value={selectedSeat.status || "available"} />
@@ -239,6 +286,134 @@ function PropertiesPanel() {
       </div>
 
       <div className="flex flex-col gap-5 p-4 flex-1">
+        {/* ── SHAPE SECTION ── */}
+        {selectedShape && (
+          <>
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Shape</SectionHeader>
+
+              <Field label="Type">
+                <div className="rounded-md border border-white/8 bg-[#0c1017] px-2.5 py-1.5 text-[12px] text-white/85">
+                  {selectedShape.type === SHAPE_TYPES.POLYGON
+                    ? "Polygonal Area"
+                    : selectedShape.type === SHAPE_TYPES.CIRCLE
+                      ? "Elipse"
+                      : "Rectangle"}
+                </div>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Width">
+                  <Input
+                    type="number"
+                    min="20"
+                    value={Math.round(selectedShape.width || 80)}
+                    onChange={(e) =>
+                      handleShapeDimensionChange("width", e.target.value)
+                    }
+                    disabled={selectedShape.type === SHAPE_TYPES.POLYGON}
+                  />
+                </Field>
+                <Field label="Height">
+                  <Input
+                    type="number"
+                    min="20"
+                    value={Math.round(selectedShape.height || 80)}
+                    onChange={(e) =>
+                      handleShapeDimensionChange("height", e.target.value)
+                    }
+                    disabled={selectedShape.type === SHAPE_TYPES.POLYGON}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SectionHeader>Style</SectionHeader>
+
+              <Field label="Fill" row>
+                <div
+                  className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5"
+                  style={{
+                    background: "#0c1017",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div
+                    className="h-4 w-4 rounded-sm shrink-0"
+                    style={{
+                      background: selectedShape.fill,
+                      border: "1px solid rgba(255,255,255,0.15)",
+                    }}
+                  />
+                  <span className="text-[11px] text-white/60 tabular-nums">
+                    {selectedShape.fill}
+                  </span>
+                  <input
+                    type="color"
+                    value={rgbaToHex(selectedShape.fill)}
+                    onChange={(e) => {
+                      const hex = e.target.value;
+                      updateShape(selectedShape.id, {
+                        fill: `rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(
+                          hex.slice(3, 5),
+                          16,
+                        )}, ${parseInt(hex.slice(5, 7), 16)}, 0.22)`,
+                      });
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+              </Field>
+
+              <Field label="Border" row>
+                <div
+                  className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5"
+                  style={{
+                    background: "#0c1017",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div
+                    className="h-4 w-4 rounded-sm shrink-0"
+                    style={{
+                      background: selectedShape.stroke,
+                      border: "1px solid rgba(255,255,255,0.15)",
+                    }}
+                  />
+                  <span className="text-[11px] text-white/60 tabular-nums">
+                    {selectedShape.stroke}
+                  </span>
+                  <input
+                    type="color"
+                    value={selectedShape.stroke || "#2f5f8f"}
+                    onChange={(e) =>
+                      updateShape(selectedShape.id, { stroke: e.target.value })
+                    }
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+              </Field>
+
+              <Field label="Stroke">
+                <Input
+                  type="number"
+                  min="0"
+                  max="12"
+                  value={selectedShape.strokeWidth || 2}
+                  onChange={(e) => {
+                    const strokeWidth = Math.max(
+                      0,
+                      Math.min(12, parseFloat(e.target.value) || 0),
+                    );
+                    updateShape(selectedShape.id, { strokeWidth });
+                  }}
+                />
+              </Field>
+            </div>
+          </>
+        )}
+
         {/* ── SEAT SECTION ── */}
         {hasSeatsSelected && (
           <>

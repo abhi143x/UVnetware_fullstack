@@ -6,17 +6,31 @@ const STORAGE_KEY = "uvnetware-layout";
 export function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { seats: [], texts: [], categories: [], nextRowIndex: 0 };
+    if (!raw)
+      return {
+        seats: [],
+        texts: [],
+        shapes: [],
+        categories: [],
+        nextRowIndex: 0,
+      };
     const parsed = JSON.parse(raw);
     return {
       seats: Array.isArray(parsed.seats) ? parsed.seats : [],
       texts: Array.isArray(parsed.texts) ? parsed.texts : [],
+      shapes: Array.isArray(parsed.shapes) ? parsed.shapes : [],
       categories: Array.isArray(parsed.categories) ? parsed.categories : [],
       nextRowIndex:
         typeof parsed.nextRowIndex === "number" ? parsed.nextRowIndex : 0,
     };
   } catch {
-    return { seats: [], texts: [], categories: [], nextRowIndex: 0 };
+    return {
+      seats: [],
+      texts: [],
+      shapes: [],
+      categories: [],
+      nextRowIndex: 0,
+    };
   }
 }
 
@@ -35,19 +49,21 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
       set((state) => ({
         seats: templateData.seats || [],
         texts: templateData.texts || [],
+        shapes: templateData.shapes || [],
         selectedSeatIds: [],
         selectedTextIds: [],
+        selectedShapeIds: [],
         nextRowIndex: templateData.nextRowIndex || 0,
         templateVersion: state.templateVersion + 1,
         _history: { past: [], future: [] },
       })),
 
     saveLayout: () => {
-      const { seats, texts, categories, nextRowIndex } = get();
+      const { seats, texts, shapes, categories, nextRowIndex } = get();
       try {
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ seats, texts, categories, nextRowIndex }),
+          JSON.stringify({ seats, texts, shapes, categories, nextRowIndex }),
         );
         set({ lastSavedAt: Date.now() });
         return true;
@@ -57,9 +73,9 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
     },
 
     exportJSON: () => {
-      const { seats, texts, categories, nextRowIndex } = get();
+      const { seats, texts, shapes, categories, nextRowIndex } = get();
       const data = JSON.stringify(
-        { seats, texts, categories, nextRowIndex },
+        { seats, texts, shapes, categories, nextRowIndex },
         null,
         2,
       );
@@ -77,8 +93,10 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
       trackedSet({
         seats: [],
         texts: [],
+        shapes: [],
         selectedSeatIds: [],
         selectedTextIds: [],
+        selectedShapeIds: [],
         lastSavedAt: null,
         nextRowIndex: 0,
       });

@@ -6,7 +6,7 @@
 const MAX_HISTORY = 100;
 
 /** Fields that form a "layout snapshot". */
-const TRACKED_KEYS = ["seats", "texts", "categories", "nextRowIndex"];
+const TRACKED_KEYS = ["seats", "texts", "shapes", "categories", "nextRowIndex"];
 
 /** Pull only the tracked fields out of the full store state. */
 export function createSnapshot(state) {
@@ -70,6 +70,7 @@ export function undoAction(set) {
         ...prev,
         selectedSeatIds: [],
         selectedTextIds: [],
+        selectedShapeIds: [],
         _history: {
           past: past.slice(0, -1),
           future: [createSnapshot(state), ...future],
@@ -90,6 +91,7 @@ export function redoAction(set) {
         ...next,
         selectedSeatIds: [],
         selectedTextIds: [],
+        selectedShapeIds: [],
         _history: {
           past: [...past, createSnapshot(state)].slice(-MAX_HISTORY),
           future: rest,

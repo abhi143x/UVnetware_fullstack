@@ -1,16 +1,30 @@
 import React from "react";
 import { PREVIEW_SEAT_RADIUS } from "../../utils/mathUtils";
-import { TOOL_ROW, TOOL_ARC, TOOL_SELECT } from "../../constants/tools";
+import {
+  TOOL_ROW,
+  TOOL_ARC,
+  TOOL_SELECT,
+  TOOL_SHAPE,
+} from "../../constants/tools";
 import { getRowLetter, generateSeatLabel } from "../../utils/seatNumbering";
 
 const SelectionLayer = React.memo(function SelectionLayer({
   activeTool,
   rowPreviewPoints,
   arcPreviewPoints,
+  polygonPreview,
   marqueeRect,
   nextRowIndex = 0,
 }) {
   const currentRowLetter = getRowLetter(nextRowIndex);
+  const polygonPoints = polygonPreview?.points || [];
+  const previewPoint = polygonPreview?.previewPoint || null;
+  const polygonPath = [
+    ...polygonPoints,
+    ...(previewPoint ? [previewPoint] : []),
+  ]
+    .map((point) => `${point.x},${point.y}`)
+    .join(" ");
 
   return (
     <>
@@ -100,6 +114,31 @@ const SelectionLayer = React.memo(function SelectionLayer({
           strokeDasharray="10,8"
           pointerEvents="none"
         />
+      )}
+
+      {activeTool === TOOL_SHAPE && polygonPoints.length > 0 && (
+        <g pointerEvents="none">
+          {polygonPath && (
+            <polyline
+              points={polygonPath}
+              fill="rgba(95, 167, 255, 0.1)"
+              stroke="rgba(149, 198, 255, 0.9)"
+              strokeWidth={2}
+              strokeDasharray="8 6"
+            />
+          )}
+          {polygonPoints.map((point, index) => (
+            <circle
+              key={`polygon-point-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r={index === 0 ? 5 : 4}
+              fill={index === 0 ? "#f6fbff" : "#a7cbff"}
+              stroke="rgba(49, 88, 129, 0.9)"
+              strokeWidth={1.5}
+            />
+          ))}
+        </g>
       )}
     </>
   );

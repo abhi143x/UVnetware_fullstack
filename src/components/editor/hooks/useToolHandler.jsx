@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { ToolManager } from "../tools/ToolManager";
 import { TOOL_ERASER } from "../constants/tools";
+import { TOOL_SELECT } from "../constants/tools";
 
 export function useToolHandler(storeActions) {
   const toolManagerRef = useRef(null);
@@ -21,7 +22,12 @@ export function useToolHandler(storeActions) {
 
   const handleMouseMove = useCallback(
     (event, worldPoint, context) => {
-      if (!toolSession && context.activeTool !== TOOL_ERASER) return;
+      if (
+        !toolSession &&
+        context.activeTool !== TOOL_ERASER &&
+        context.activeTool !== TOOL_SELECT
+      )
+        return;
 
       const newSession = toolManager.handleMouseMove(
         event,
@@ -37,8 +43,13 @@ export function useToolHandler(storeActions) {
   const handleMouseUp = useCallback(
     (event, worldPoint, context) => {
       if (toolSession) {
-        toolManager.handleMouseUp(event, worldPoint, context, toolSession);
-        setToolSession(null);
+        const nextSession = toolManager.handleMouseUp(
+          event,
+          worldPoint,
+          context,
+          toolSession,
+        );
+        setToolSession(nextSession ?? null);
       }
     },
     [toolManager, toolSession],

@@ -18,6 +18,11 @@ function Editor() {
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
   const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
+  const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
+  const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
+  const setSelectedShapeType = useEditorStore(
+    (state) => state.setSelectedShapeType,
+  );
   const seatCount = useEditorStore((state) => state.seats.length);
 
   const clearLayout = useEditorStore((state) => state.clearLayout);
@@ -25,9 +30,11 @@ function Editor() {
   const hasSelection = selectedSeatIds.length > 0 || selectedTextIds.length > 0;
   const hasTextSelection = selectedTextIds.length > 0;
   const hasSeatSelection = selectedSeatIds.length > 0;
+  const hasShapeSelection = selectedShapeIds.length > 0;
   const showProperties =
     (hasSeatSelection && activeTool === TOOL_SELECT) ||
-    (hasTextSelection && activeTool === TOOL_TEXT);
+    (hasTextSelection && activeTool === TOOL_TEXT) ||
+    (hasShapeSelection && activeTool === TOOL_SELECT);
   const isOverCapacity = seatCount > 500;
 
   const [currentLayoutId, setCurrentLayoutId] = useState(null);
@@ -65,6 +72,7 @@ function Editor() {
       useEditorStore.setState({
         seats: layout.seats || [],
         texts: layout.texts || [],
+        shapes: layout.shapes || [],
       });
 
       setCurrentLayoutId(layout.id);
@@ -87,6 +95,7 @@ function Editor() {
 
     const seats = useEditorStore.getState().seats;
     const texts = useEditorStore.getState().texts;
+    const shapes = useEditorStore.getState().shapes;
 
     // CASE 1: Updating existing layout
     if (currentLayoutId) {
@@ -104,6 +113,7 @@ function Editor() {
               name: newName,
               seats,
               texts,
+              shapes,
               updatedAt: new Date().toISOString(),
             }
           : layout,
@@ -129,6 +139,7 @@ function Editor() {
         user: user.email,
         seats,
         texts,
+        shapes,
         createdAt: new Date().toISOString(),
       };
 
@@ -233,6 +244,8 @@ function Editor() {
             <Toolbar
               activeTool={activeTool}
               onToolChange={setActiveTool}
+              selectedShapeType={selectedShapeType}
+              onShapeTypeChange={setSelectedShapeType}
               onAlign={handleAlign}
               compact
             />

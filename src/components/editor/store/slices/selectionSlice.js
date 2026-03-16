@@ -2,262 +2,324 @@
 // Manages seat/text selection, smart row selection, marquee, and copy/paste.
 
 import { TOOL_SELECT } from "../../constants/tools";
+import { DEFAULT_SEAT_RADIUS, createId } from "../../services/seatService";
 import {
-    DEFAULT_SEAT_RADIUS,
-    createId,
-} from "../../services/seatService";
-import {
-    SMART_ROW_ANGLE_TOLERANCE,
-    SMART_ROW_MIN_DISTANCE_SQUARED,
+  SMART_ROW_ANGLE_TOLERANCE,
+  SMART_ROW_MIN_DISTANCE_SQUARED,
 } from "../../services/rowService";
 import { isOverlapping } from "../../services/layoutService";
 import { generateSeatLabel } from "../../utils/seatNumbering";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
 
 export function createSelectionSlice(set, get, { trackedSet }) {
-    return {
-        // State
-        selectedSeatIds: [],
-        selectedTextIds: [],
-        clipboard: null,
-        pasteCount: 0,
+  return {
+    // State
+    selectedSeatIds: [],
+    selectedTextIds: [],
+    selectedShapeIds: [],
+    clipboard: null,
+    pasteCount: 0,
 
-        // Actions
-        clearSelection: () =>
-            set(() => {
-                return { selectedSeatIds: [], selectedTextIds: [] };
-            }),
+    // Actions
+    clearSelection: () =>
+      set(() => {
+        return {
+          selectedSeatIds: [],
+          selectedTextIds: [],
+          selectedShapeIds: [],
+        };
+      }),
 
-        selectSeat: (seatId, isMulti) =>
-            set((state) => {
-                if (state.activeTool !== TOOL_SELECT) return state;
+    selectSeat: (seatId, isMulti) =>
+      set((state) => {
+        if (state.activeTool !== TOOL_SELECT) return state;
 
-                if (!isMulti) {
-                    return { selectedSeatIds: [seatId] };
-                }
+        if (!isMulti) {
+          return { selectedSeatIds: [seatId] };
+        }
 
-                if (state.selectedSeatIds.includes(seatId)) {
-                    const selectedSeatIds = state.selectedSeatIds.filter(
-                        (id) => id !== seatId,
-                    );
-                    return {
-                        selectedSeatIds,
-                    };
-                }
-                const selectedSeatIds = [...state.selectedSeatIds, seatId];
-                return { selectedSeatIds };
-            }),
+        if (state.selectedSeatIds.includes(seatId)) {
+          const selectedSeatIds = state.selectedSeatIds.filter(
+            (id) => id !== seatId,
+          );
+          return {
+            selectedSeatIds,
+          };
+        }
+        const selectedSeatIds = [...state.selectedSeatIds, seatId];
+        return { selectedSeatIds };
+      }),
 
-        selectText: (textId, shiftKey) =>
-            set((state) => {
-                if (state.activeTool !== TOOL_SELECT) return state;
+    selectText: (textId, shiftKey) =>
+      set((state) => {
+        if (state.activeTool !== TOOL_SELECT) return state;
 
-                if (!shiftKey) {
-                    return { selectedTextIds: [textId] };
-                }
+        if (!shiftKey) {
+          return { selectedTextIds: [textId] };
+        }
 
-                if (state.selectedTextIds.includes(textId)) {
-                    const selectedTextIds = state.selectedTextIds.filter(
-                        (id) => id !== textId,
-                    );
-                    return {
-                        selectedTextIds,
-                    };
-                }
-                const selectedTextIds = [...state.selectedTextIds, textId];
-                return { selectedTextIds };
-            }),
+        if (state.selectedTextIds.includes(textId)) {
+          const selectedTextIds = state.selectedTextIds.filter(
+            (id) => id !== textId,
+          );
+          return {
+            selectedTextIds,
+          };
+        }
+        const selectedTextIds = [...state.selectedTextIds, textId];
+        return { selectedTextIds };
+      }),
 
-        smartRowSelect: (seatId, event) =>
-            set((state) => {
-                if (state.activeTool !== TOOL_SELECT) return state;
+    selectShape: (shapeId, shiftKey) =>
+      set((state) => {
+        if (state.activeTool !== TOOL_SELECT) return state;
 
-                const clickedSeat = state.seats.find((s) => s.id === seatId);
-                if (!clickedSeat) return state;
+        if (!shiftKey) {
+          return { selectedShapeIds: [shapeId] };
+        }
 
-                const bucketCounts = new Map();
-                let dominantBucketKey = null;
-                let dominantBucketCount = 0;
+        if (state.selectedShapeIds.includes(shapeId)) {
+          const selectedShapeIds = state.selectedShapeIds.filter(
+            (id) => id !== shapeId,
+          );
+          return {
+            selectedShapeIds,
+          };
+        }
+        const selectedShapeIds = [...state.selectedShapeIds, shapeId];
+        return { selectedShapeIds };
+      }),
 
-                for (const seat of state.seats) {
-                    if (seat.id === seatId) continue;
+    smartRowSelect: (seatId, event) =>
+      set((state) => {
+        if (state.activeTool !== TOOL_SELECT) return state;
 
-                    const dx = seat.x - clickedSeat.x;
-                    const dy = seat.y - clickedSeat.y;
-                    const distanceSquared = dx * dx + dy * dy;
+        const clickedSeat = state.seats.find((s) => s.id === seatId);
+        if (!clickedSeat) return state;
 
-                    if (distanceSquared <= SMART_ROW_MIN_DISTANCE_SQUARED) continue;
+        const bucketCounts = new Map();
+        let dominantBucketKey = null;
+        let dominantBucketCount = 0;
 
-                    let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
-                    if (angleDeg < 0) angleDeg += 180;
-                    else if (angleDeg >= 180) angleDeg -= 180;
+        for (const seat of state.seats) {
+          if (seat.id === seatId) continue;
 
-                    const bucketKey =
-                        Math.round(angleDeg / SMART_ROW_ANGLE_TOLERANCE) *
-                        SMART_ROW_ANGLE_TOLERANCE;
-                    const nextCount = (bucketCounts.get(bucketKey) ?? 0) + 1;
-                    bucketCounts.set(bucketKey, nextCount);
+          const dx = seat.x - clickedSeat.x;
+          const dy = seat.y - clickedSeat.y;
+          const distanceSquared = dx * dx + dy * dy;
 
-                    if (nextCount > dominantBucketCount) {
-                        dominantBucketCount = nextCount;
-                        dominantBucketKey = bucketKey;
-                    }
-                }
+          if (distanceSquared <= SMART_ROW_MIN_DISTANCE_SQUARED) continue;
 
-                if (dominantBucketKey === null || dominantBucketCount < 2) return state;
+          let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+          if (angleDeg < 0) angleDeg += 180;
+          else if (angleDeg >= 180) angleDeg -= 180;
 
-                const angleRad = dominantBucketKey * (Math.PI / 180);
-                const ux = Math.cos(angleRad);
-                const uy = Math.sin(angleRad);
-                const rowSeats = [];
+          const bucketKey =
+            Math.round(angleDeg / SMART_ROW_ANGLE_TOLERANCE) *
+            SMART_ROW_ANGLE_TOLERANCE;
+          const nextCount = (bucketCounts.get(bucketKey) ?? 0) + 1;
+          bucketCounts.set(bucketKey, nextCount);
 
-                for (const seat of state.seats) {
-                    const dx = seat.x - clickedSeat.x;
-                    const dy = seat.y - clickedSeat.y;
-                    const distance = Math.abs(dx * uy - dy * ux);
-                    const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
+          if (nextCount > dominantBucketCount) {
+            dominantBucketCount = nextCount;
+            dominantBucketKey = bucketKey;
+          }
+        }
 
-                    if (distance < seatRadius * 1.2) {
-                        rowSeats.push({ id: seat.id, projection: dx * ux + dy * uy });
-                    }
-                }
+        if (dominantBucketKey === null || dominantBucketCount < 2) return state;
 
-                if (rowSeats.length === 0) return state;
+        const angleRad = dominantBucketKey * (Math.PI / 180);
+        const ux = Math.cos(angleRad);
+        const uy = Math.sin(angleRad);
+        const rowSeats = [];
 
-                rowSeats.sort((a, b) => a.projection - b.projection);
-                const rowSeatIds = rowSeats.map((s) => s.id);
+        for (const seat of state.seats) {
+          const dx = seat.x - clickedSeat.x;
+          const dy = seat.y - clickedSeat.y;
+          const distance = Math.abs(dx * uy - dy * ux);
+          const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
 
-                if (event?.evt?.shiftKey || event?.shiftKey) {
-                    const selectedSeatIds = [
-                        ...new Set([...state.selectedSeatIds, ...rowSeatIds]),
-                    ];
-                    return {
-                        selectedSeatIds,
-                    };
-                }
-                return { selectedSeatIds: rowSeatIds };
-            }),
+          if (distance < seatRadius * 1.2) {
+            rowSeats.push({ id: seat.id, projection: dx * ux + dy * uy });
+          }
+        }
 
-        marqueeSelect: (seatIds, textIds, shiftKey) =>
-            set((state) => {
-                if (state.activeTool !== TOOL_SELECT) return state;
+        if (rowSeats.length === 0) return state;
 
-                if (!shiftKey) {
-                    return { selectedSeatIds: seatIds, selectedTextIds: textIds };
-                }
+        rowSeats.sort((a, b) => a.projection - b.projection);
+        const rowSeatIds = rowSeats.map((s) => s.id);
 
-                const updates = {};
-                if (seatIds.length > 0) {
-                    updates.selectedSeatIds = [
-                        ...new Set([...state.selectedSeatIds, ...seatIds]),
-                    ];
-                }
-                if (textIds.length > 0) {
-                    updates.selectedTextIds = [
-                        ...new Set([...state.selectedTextIds, ...textIds]),
-                    ];
-                }
-                return updates;
-            }),
+        if (event?.evt?.shiftKey || event?.shiftKey) {
+          const selectedSeatIds = [
+            ...new Set([...state.selectedSeatIds, ...rowSeatIds]),
+          ];
+          return {
+            selectedSeatIds,
+          };
+        }
+        return { selectedSeatIds: rowSeatIds };
+      }),
 
-        copySelection: () => {
-            const { seats, texts, selectedSeatIds, selectedTextIds } = get();
-            const copiedSeats = seats.filter((s) => selectedSeatIds.includes(s.id));
-            const copiedTexts = texts.filter((t) => selectedTextIds.includes(t.id));
-            if (copiedSeats.length === 0 && copiedTexts.length === 0) return;
+    marqueeSelect: (seatIds, textIds, shapeIds, shiftKey) =>
+      set((state) => {
+        if (state.activeTool !== TOOL_SELECT) return state;
 
-            // Compute centroid so paste positions are relative
-            const allItems = [
-                ...copiedSeats.map((s) => ({ x: s.x, y: s.y })),
-                ...copiedTexts.map((t) => ({ x: t.x, y: t.y })),
-            ];
-            const cx = allItems.reduce((sum, p) => sum + p.x, 0) / allItems.length;
-            const cy = allItems.reduce((sum, p) => sum + p.y, 0) / allItems.length;
+        if (!shiftKey) {
+          return {
+            selectedSeatIds: seatIds,
+            selectedTextIds: textIds,
+            selectedShapeIds: shapeIds,
+          };
+        }
 
-            set({
-                clipboard: {
-                    seats: copiedSeats.map((s) => ({ ...s, x: s.x - cx, y: s.y - cy })),
-                    texts: copiedTexts.map((t) => ({ ...t, x: t.x - cx, y: t.y - cy })),
-                    cx,
-                    cy,
-                },
-                pasteCount: 0,
-            });
+        const updates = {};
+        if (seatIds.length > 0) {
+          updates.selectedSeatIds = [
+            ...new Set([...state.selectedSeatIds, ...seatIds]),
+          ];
+        }
+        if (textIds.length > 0) {
+          updates.selectedTextIds = [
+            ...new Set([...state.selectedTextIds, ...textIds]),
+          ];
+        }
+        if (shapeIds.length > 0) {
+          updates.selectedShapeIds = [
+            ...new Set([...state.selectedShapeIds, ...shapeIds]),
+          ];
+        }
+        return updates;
+      }),
+
+    copySelection: () => {
+      const {
+        seats,
+        texts,
+        shapes,
+        selectedSeatIds,
+        selectedTextIds,
+        selectedShapeIds,
+      } = get();
+      const copiedSeats = seats.filter((s) => selectedSeatIds.includes(s.id));
+      const copiedTexts = texts.filter((t) => selectedTextIds.includes(t.id));
+      const copiedShapes = shapes.filter((s) =>
+        selectedShapeIds.includes(s.id),
+      );
+      if (
+        copiedSeats.length === 0 &&
+        copiedTexts.length === 0 &&
+        copiedShapes.length === 0
+      )
+        return;
+
+      // Compute centroid so paste positions are relative
+      const allItems = [
+        ...copiedSeats.map((s) => ({ x: s.x, y: s.y })),
+        ...copiedTexts.map((t) => ({ x: t.x, y: t.y })),
+        ...copiedShapes.map((s) => ({ x: s.x, y: s.y })),
+      ];
+      const cx = allItems.reduce((sum, p) => sum + p.x, 0) / allItems.length;
+      const cy = allItems.reduce((sum, p) => sum + p.y, 0) / allItems.length;
+
+      set({
+        clipboard: {
+          seats: copiedSeats.map((s) => ({ ...s, x: s.x - cx, y: s.y - cy })),
+          texts: copiedTexts.map((t) => ({ ...t, x: t.x - cx, y: t.y - cy })),
+          shapes: copiedShapes.map((s) => ({ ...s, x: s.x - cx, y: s.y - cy })),
+          cx,
+          cy,
         },
+        pasteCount: 0,
+      });
+    },
 
-        pasteClipboard: () =>
-            trackedSet((state) => {
-                const { clipboard } = state;
-                if (!clipboard) return state;
+    pasteClipboard: () =>
+      trackedSet((state) => {
+        const { clipboard } = state;
+        if (!clipboard) return state;
 
-                const nextPasteCount = state.pasteCount + 1;
-                const offset = nextPasteCount * 30;
+        const nextPasteCount = state.pasteCount + 1;
+        const offset = nextPasteCount * 30;
 
-                // Build max seat number per row from existing seats
-                const maxNumberPerRow = {};
-                state.seats.forEach((s) => {
-                    if (s.row) {
-                        maxNumberPerRow[s.row] = Math.max(
-                            maxNumberPerRow[s.row] || 0,
-                            s.number || 0,
-                        );
-                    }
-                });
+        // Build max seat number per row from existing seats
+        const maxNumberPerRow = {};
+        state.seats.forEach((s) => {
+          if (s.row) {
+            maxNumberPerRow[s.row] = Math.max(
+              maxNumberPerRow[s.row] || 0,
+              s.number || 0,
+            );
+          }
+        });
 
-                // Track running count per row for pasted seats
-                const pastedCountPerRow = {};
+        // Track running count per row for pasted seats
+        const pastedCountPerRow = {};
 
-                const newSeatIds = [];
-                const pastedSeats = clipboard.seats.map((s) => {
-                    const newId = createId(ELEMENT_TYPES.SEAT);
-                    newSeatIds.push(newId);
-                    const row = s.row || "A";
-                    if (!pastedCountPerRow[row]) pastedCountPerRow[row] = 0;
-                    pastedCountPerRow[row]++;
-                    const newNumber =
-                        (maxNumberPerRow[row] || 0) + pastedCountPerRow[row];
-                    return {
-                        ...s,
-                        id: newId,
-                        x: clipboard.cx + s.x + offset,
-                        y: clipboard.cy + s.y + offset,
-                        number: newNumber,
-                        label: generateSeatLabel(row, newNumber),
-                    };
-                });
+        const newSeatIds = [];
+        const pastedSeats = clipboard.seats.map((s) => {
+          const newId = createId(ELEMENT_TYPES.SEAT);
+          newSeatIds.push(newId);
+          const row = s.row || "A";
+          if (!pastedCountPerRow[row]) pastedCountPerRow[row] = 0;
+          pastedCountPerRow[row]++;
+          const newNumber =
+            (maxNumberPerRow[row] || 0) + pastedCountPerRow[row];
+          return {
+            ...s,
+            id: newId,
+            x: clipboard.cx + s.x + offset,
+            y: clipboard.cy + s.y + offset,
+            number: newNumber,
+            label: generateSeatLabel(row, newNumber),
+          };
+        });
 
-                const newTextIds = [];
-                const pastedTexts = clipboard.texts.map((t) => {
-                    const newId = createId(ELEMENT_TYPES.TEXT);
-                    newTextIds.push(newId);
-                    return {
-                        ...t,
-                        id: newId,
-                        x: clipboard.cx + t.x + offset,
-                        y: clipboard.cy + t.y + offset,
-                    };
-                });
+        const newTextIds = [];
+        const pastedTexts = clipboard.texts.map((t) => {
+          const newId = createId(ELEMENT_TYPES.TEXT);
+          newTextIds.push(newId);
+          return {
+            ...t,
+            id: newId,
+            x: clipboard.cx + t.x + offset,
+            y: clipboard.cy + t.y + offset,
+          };
+        });
 
-                // Filter out seats that overlap existing ones
-                const allExistingSeats = state.seats;
-                const nonOverlapping = pastedSeats.filter(
-                    (s) =>
-                        !isOverlapping(
-                            s.x,
-                            s.y,
-                            allExistingSeats,
-                            s.radius ?? DEFAULT_SEAT_RADIUS,
-                        ),
-                );
+        const newShapeIds = [];
+        const pastedShapes = (clipboard.shapes || []).map((shape) => {
+          const newId = createId(ELEMENT_TYPES.SHAPE);
+          newShapeIds.push(newId);
+          return {
+            ...shape,
+            id: newId,
+            x: clipboard.cx + shape.x + offset,
+            y: clipboard.cy + shape.y + offset,
+          };
+        });
 
-                return {
-                    seats: [...state.seats, ...nonOverlapping],
-                    texts: [...state.texts, ...pastedTexts],
-                    selectedSeatIds: nonOverlapping.map((s) => s.id),
-                    selectedTextIds: newTextIds,
-                    pasteCount: nextPasteCount,
-                    activeTool: TOOL_SELECT,
-                };
-            }),
-    };
+        // Filter out seats that overlap existing ones
+        const allExistingSeats = state.seats;
+        const nonOverlapping = pastedSeats.filter(
+          (s) =>
+            !isOverlapping(
+              s.x,
+              s.y,
+              allExistingSeats,
+              s.radius ?? DEFAULT_SEAT_RADIUS,
+            ),
+        );
+
+        return {
+          seats: [...state.seats, ...nonOverlapping],
+          texts: [...state.texts, ...pastedTexts],
+          shapes: [...state.shapes, ...pastedShapes],
+          selectedSeatIds: nonOverlapping.map((s) => s.id),
+          selectedTextIds: newTextIds,
+          selectedShapeIds: newShapeIds,
+          pasteCount: nextPasteCount,
+          activeTool: TOOL_SELECT,
+        };
+      }),
+  };
 }

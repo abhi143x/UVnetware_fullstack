@@ -1,14 +1,28 @@
 import { buildSelectionBounds, isSeatInsideBounds } from "../utils/mathUtils";
+import {
+  getShapeAbsolutePoints,
+  getShapeBounds,
+  getShapeResizeHandles,
+  normalizeShapeSize,
+  SHAPE_TYPES,
+} from "../services/shapeService";
+
+const SHAPE_HANDLE_HIT_RADIUS = 8;
 
 export class SelectTool {
   constructor(storeActions) {
     this.selectSeat = storeActions.selectSeat;
     this.selectText = storeActions.selectText;
+    this.selectShape = storeActions.selectShape;
     this.smartRowSelect = storeActions.smartRowSelect;
     this.moveSeats = storeActions.moveSeats;
     this.moveSeatsPreview = storeActions.moveSeatsPreview;
     this.moveTexts = storeActions.moveTexts;
     this.moveTextsPreview = storeActions.moveTextsPreview;
+    this.moveShapes = storeActions.moveShapes;
+    this.moveShapesPreview = storeActions.moveShapesPreview;
+    this.updateShapePreview = storeActions.updateShapePreview;
+    this.setCanvasCursor = storeActions.setCanvasCursor;
     this.marqueeSelect = storeActions.marqueeSelect;
     this.clearSelection = storeActions.clearSelection;
     this.pushHistoryCheckpoint = storeActions.pushHistoryCheckpoint;
@@ -18,17 +32,30 @@ export class SelectTool {
     const {
       seats,
       texts,
+      shapes,
       selectedSeatIds,
       selectedTextIds,
+      selectedShapeIds,
       seatsById,
       textsById,
+      shapesById,
     } = context;
 
     // Check if clicking on a selected item for dragging
     const clickedSeat = this.findSeatAtPoint(worldPoint, seats);
     const clickedText = this.findTextAtPoint(worldPoint, texts);
+    const clickedShape = this.findShapeAtPoint(worldPoint, shapes);
+    const shapeResizeHandle = this.findShapeResizeHandleAtPoint(
+      worldPoint,
+      shapes,
+      selectedShapeIds,
+    );
 
     const isMulti = event.shiftKey || event.ctrlKey || event.metaKey;
+
+    if (shapeResizeHandle && !isMulti) {
+      return this.startShapeResize(worldPoint, shapeResizeHandle);
+    }
 
     if (clickedSeat) {
       if (!selectedSeatIds.includes(clickedSeat.id)) {
@@ -42,8 +69,10 @@ export class SelectTool {
           worldPoint,
           seatsById,
           textsById,
+          shapesById,
           newSeatIds,
           newTextIds,
+          isMulti ? selectedShapeIds : [],
         );
         session.wasUnselectedOnDown = true;
         return session;
@@ -53,8 +82,10 @@ export class SelectTool {
         worldPoint,
         seatsById,
         textsById,
+        shapesById,
         selectedSeatIds,
         selectedTextIds,
+        selectedShapeIds,
       );
       session.wasUnselectedOnDown = false;
       return session;
@@ -72,8 +103,10 @@ export class SelectTool {
           worldPoint,
           seatsById,
           textsById,
+          shapesById,
           newSeatIds,
           newTextIds,
+          isMulti ? selectedShapeIds : [],
         );
         session.wasUnselectedOnDown = true;
         return session;
@@ -83,8 +116,45 @@ export class SelectTool {
         worldPoint,
         seatsById,
         textsById,
+        shapesById,
         selectedSeatIds,
         selectedTextIds,
+        selectedShapeIds,
+      );
+      session.wasUnselectedOnDown = false;
+      return session;
+    }
+
+    if (clickedShape) {
+      if (!selectedShapeIds.includes(clickedShape.id)) {
+        this.selectShape(clickedShape.id, isMulti);
+        const newShapeIds = isMulti
+          ? [...selectedShapeIds, clickedShape.id]
+          : [clickedShape.id];
+        const newSeatIds = isMulti ? selectedSeatIds : [];
+        const newTextIds = isMulti ? selectedTextIds : [];
+        const session = this.startDrag(
+          event,
+          worldPoint,
+          seatsById,
+          textsById,
+          shapesById,
+          newSeatIds,
+          newTextIds,
+          newShapeIds,
+        );
+        session.wasUnselectedOnDown = true;
+        return session;
+      }
+      const session = this.startDrag(
+        event,
+        worldPoint,
+        seatsById,
+        textsById,
+        shapesById,
+        selectedSeatIds,
+        selectedTextIds,
+        selectedShapeIds,
       );
       session.wasUnselectedOnDown = false;
       return session;
@@ -98,11 +168,32 @@ export class SelectTool {
   }
 
   handleMouseMove(event, worldPoint, context, session) {
+    if (!session) {
+      const hoveredHandle = this.findShapeResizeHandleAtPoint(
+        worldPoint,
+        context.shapes,
+        context.selectedShapeIds,
+      );
+      this.setCanvasCursor?.(
+        hoveredHandle
+          ? this.getResizeCursorForHandle(hoveredHandle.handle)
+          : null,
+      );
+      return session;
+    }
+
     if (session.type === "drag") {
+      this.setCanvasCursor?.(null);
       return this.updateDrag(worldPoint, session);
     }
 
+    if (session.type === "shape_resize") {
+      this.setCanvasCursor?.(this.getResizeCursorForHandle(session.handle));
+      return this.updateShapeResize(worldPoint, session);
+    }
+
     if (session.type === "marquee_start" || session.type === "marquee") {
+      this.setCanvasCursor?.(null);
       const bounds = buildSelectionBounds(session.startPoint, worldPoint);
       const selectedSeatIds = context.seats
         .filter((seat) => isSeatInsideBounds(seat, bounds))
@@ -112,6 +203,10 @@ export class SelectTool {
         .filter((text) => this.isTextInsideBounds(text, bounds))
         .map((text) => text.id);
 
+      const selectedShapeIds = context.shapes
+        .filter((shape) => this.isShapeInsideBounds(shape, bounds))
+        .map((shape) => shape.id);
+
       return {
         type: "marquee",
         startPoint: session.startPoint,
@@ -119,6 +214,7 @@ export class SelectTool {
         bounds,
         selectedSeatIds,
         selectedTextIds,
+        selectedShapeIds,
       };
     }
 
@@ -126,6 +222,8 @@ export class SelectTool {
   }
 
   handleMouseUp(event, worldPoint, context, session) {
+    this.setCanvasCursor?.(null);
+
     if (session.type === "drag") {
       this.commitDrag(session);
       if (session.hasMoved || session.wasUnselectedOnDown) {
@@ -133,10 +231,18 @@ export class SelectTool {
       }
     }
 
+    if (session.type === "shape_resize") {
+      if (!session.hasResized) {
+        return null;
+      }
+      return null;
+    }
+
     if (session.type === "marquee") {
       this.marqueeSelect(
         session.selectedSeatIds,
         session.selectedTextIds || [],
+        session.selectedShapeIds || [],
         event.shiftKey || event.ctrlKey || event.metaKey,
       );
       return null;
@@ -147,11 +253,14 @@ export class SelectTool {
     // Single click selection
     const clickedSeat = this.findSeatAtPoint(worldPoint, context.seats);
     const clickedText = this.findTextAtPoint(worldPoint, context.texts);
+    const clickedShape = this.findShapeAtPoint(worldPoint, context.shapes);
 
     if (clickedSeat) {
       this.selectSeat(clickedSeat.id, isMulti);
     } else if (clickedText) {
       this.selectText(clickedText.id, isMulti);
+    } else if (clickedShape) {
+      this.selectShape(clickedShape.id, isMulti);
     } else {
       this.clearSelection();
     }
@@ -215,13 +324,200 @@ export class SelectTool {
     );
   }
 
+  findShapeAtPoint(point, shapes) {
+    for (let index = shapes.length - 1; index >= 0; index -= 1) {
+      const shape = shapes[index];
+      const bounds = getShapeBounds(shape);
+      const width = Math.max(20, bounds.width || 0);
+      const height = Math.max(20, bounds.height || 0);
+      const left = bounds.left;
+      const top = bounds.top;
+
+      if (shape.type === SHAPE_TYPES.POLYGON) {
+        const polygonPoints = getShapeAbsolutePoints(shape);
+        if (this.isPointInsidePolygon(point, polygonPoints)) {
+          return shape;
+        }
+        continue;
+      }
+
+      if (shape.type === "circle") {
+        const rx = width / 2;
+        const ry = height / 2;
+        const dx = point.x - shape.x;
+        const dy = point.y - shape.y;
+        if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) {
+          return shape;
+        }
+        continue;
+      }
+
+      if (
+        point.x >= left &&
+        point.x <= left + width &&
+        point.y >= top &&
+        point.y <= top + height
+      ) {
+        return shape;
+      }
+    }
+
+    return null;
+  }
+
+  isShapeInsideBounds(shape, bounds) {
+    const shapeBounds = getShapeBounds(shape);
+    const left = shapeBounds.left;
+    const top = shapeBounds.top;
+    const right = shapeBounds.right;
+    const bottom = shapeBounds.bottom;
+    const boundsRight = bounds.x + bounds.width;
+    const boundsBottom = bounds.y + bounds.height;
+
+    return !(
+      right < bounds.x ||
+      left > boundsRight ||
+      bottom < bounds.y ||
+      top > boundsBottom
+    );
+  }
+
+  isPointInsidePolygon(point, polygon) {
+    if (!Array.isArray(polygon) || polygon.length < 3) return false;
+
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x;
+      const yi = polygon[i].y;
+      const xj = polygon[j].x;
+      const yj = polygon[j].y;
+
+      const intersect =
+        yi > point.y !== yj > point.y &&
+        point.x < ((xj - xi) * (point.y - yi)) / (yj - yi || 1e-6) + xi;
+
+      if (intersect) inside = !inside;
+    }
+
+    return inside;
+  }
+
+  findShapeResizeHandleAtPoint(point, shapes, selectedShapeIds) {
+    if (selectedShapeIds.length !== 1) return null;
+
+    const selectedId = selectedShapeIds[0];
+    const shape = shapes.find((item) => item.id === selectedId);
+    if (!shape || shape.type === SHAPE_TYPES.POLYGON) return null;
+
+    const handles = getShapeResizeHandles(shape);
+    const matched = handles.find((handle) => {
+      const dx = point.x - handle.x;
+      const dy = point.y - handle.y;
+      return Math.hypot(dx, dy) <= SHAPE_HANDLE_HIT_RADIUS;
+    });
+
+    if (!matched) return null;
+
+    return {
+      shapeId: shape.id,
+      handle: matched.key,
+      baseShape: shape,
+    };
+  }
+
+  startShapeResize(worldPoint, shapeResizeHandle) {
+    this.setCanvasCursor?.(
+      this.getResizeCursorForHandle(shapeResizeHandle.handle),
+    );
+
+    return {
+      type: "shape_resize",
+      shapeId: shapeResizeHandle.shapeId,
+      handle: shapeResizeHandle.handle,
+      startPoint: worldPoint,
+      baseShape: { ...shapeResizeHandle.baseShape },
+      hasResized: false,
+      historyCaptured: false,
+    };
+  }
+
+  getResizeCursorForHandle(handle) {
+    if (handle === "nw" || handle === "se") return "nwse-resize";
+    if (handle === "ne" || handle === "sw") return "nesw-resize";
+    return null;
+  }
+
+  updateShapeResize(worldPoint, session) {
+    const nextBounds = this.calculateResizedBounds(
+      session.baseShape,
+      session.handle,
+      worldPoint,
+    );
+    if (!nextBounds) return session;
+
+    const crossedThreshold =
+      Math.abs(worldPoint.x - session.startPoint.x) +
+        Math.abs(worldPoint.y - session.startPoint.y) >
+      2;
+    const hasResized = session.hasResized || crossedThreshold;
+
+    if (!hasResized) return session;
+
+    if (!session.historyCaptured) {
+      this.pushHistoryCheckpoint?.();
+    }
+
+    this.updateShapePreview?.(session.shapeId, nextBounds);
+
+    return {
+      ...session,
+      hasResized: true,
+      historyCaptured: true,
+    };
+  }
+
+  calculateResizedBounds(shape, handle, worldPoint) {
+    const bounds = getShapeBounds(shape);
+    const minSize = 20;
+    let left = bounds.left;
+    let right = bounds.right;
+    let top = bounds.top;
+    let bottom = bounds.bottom;
+
+    if (handle === "nw") {
+      left = Math.min(worldPoint.x, right - minSize);
+      top = Math.min(worldPoint.y, bottom - minSize);
+    } else if (handle === "ne") {
+      right = Math.max(worldPoint.x, left + minSize);
+      top = Math.min(worldPoint.y, bottom - minSize);
+    } else if (handle === "se") {
+      right = Math.max(worldPoint.x, left + minSize);
+      bottom = Math.max(worldPoint.y, top + minSize);
+    } else if (handle === "sw") {
+      left = Math.min(worldPoint.x, right - minSize);
+      bottom = Math.max(worldPoint.y, top + minSize);
+    }
+
+    let width = right - left;
+    let height = bottom - top;
+
+    return {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2,
+      width,
+      height,
+    };
+  }
+
   startDrag(
     _event,
     worldPoint,
     seatsById,
     textsById,
+    shapesById,
     selectedSeatIds,
     selectedTextIds,
+    selectedShapeIds,
   ) {
     const baseSeatPositions = new Map();
     selectedSeatIds.forEach((id) => {
@@ -235,11 +531,18 @@ export class SelectTool {
       if (text) baseTextPositions.set(id, { x: text.x, y: text.y });
     });
 
+    const baseShapePositions = new Map();
+    selectedShapeIds.forEach((id) => {
+      const shape = shapesById.get(id);
+      if (shape) baseShapePositions.set(id, { x: shape.x, y: shape.y });
+    });
+
     return {
       type: "drag",
       startPoint: worldPoint,
       baseSeatPositions,
       baseTextPositions,
+      baseShapePositions,
       hasMoved: false,
       historyCaptured: false,
     };
@@ -269,9 +572,16 @@ export class SelectTool {
 
       const moveSeatsAction = this.moveSeatsPreview || this.moveSeats;
       const moveTextsAction = this.moveTextsPreview || this.moveTexts;
+      const moveShapesAction = this.moveShapesPreview || this.moveShapes;
 
       moveSeatsAction?.(newSeatPositions);
       moveTextsAction?.(newTextPositions);
+
+      const newShapePositions = [];
+      session.baseShapePositions.forEach((pos, id) => {
+        newShapePositions.push({ id, x: pos.x + deltaX, y: pos.y + deltaY });
+      });
+      moveShapesAction?.(newShapePositions);
 
       return {
         ...session,

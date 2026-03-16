@@ -1,24 +1,32 @@
-import { useMemo } from 'react'
-import { TOOL_TEXT, TOOL_SEAT, TOOL_ROW, TOOL_ARC, TOOL_ERASER } from '../constants/tools'
+import { useMemo } from "react";
+import {
+  TOOL_TEXT,
+  TOOL_SEAT,
+  TOOL_ROW,
+  TOOL_ARC,
+  TOOL_ERASER,
+  TOOL_SHAPE,
+} from "../constants/tools";
 
 export function useCursor(activeTool, isPanning, isDraggingSeat) {
   const cursor = useMemo(() => {
     if (isPanning || isDraggingSeat) {
-      return 'grabbing'
+      return "grabbing";
     }
 
     switch (activeTool) {
       case TOOL_TEXT:
-        return 'text'
+        return "text";
       case TOOL_SEAT:
       case TOOL_ROW:
       case TOOL_ARC:
       case TOOL_ERASER:
-        return 'crosshair'
+      case TOOL_SHAPE:
+        return "crosshair";
       default:
-        return 'default'
+        return "default";
     }
-  }, [activeTool, isPanning, isDraggingSeat])
+  }, [activeTool, isPanning, isDraggingSeat]);
 
-  return cursor
+  return cursor;
 }

@@ -8,6 +8,7 @@ import {
   TOOL_ROW,
   TOOL_ARC,
   TOOL_ERASER,
+  TOOL_SHAPE,
 } from "../../constants/tools";
 import {
   generateSeatLabel,
@@ -33,6 +34,11 @@ import {
 import { generateRowSeats } from "../../services/rowService";
 import { generateArcSeats } from "../../services/arcService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
+import {
+  createPolygonShape,
+  createShape,
+  SHAPE_TYPES,
+} from "../../services/shapeService";
 
 const DEFAULT_CATEGORIES = [
   { id: "vip", name: "VIP", color: "#ffd700", price: null },
@@ -109,6 +115,19 @@ function applyTextMoveUpdates(state, textUpdates) {
   };
 }
 
+function applyShapeMoveUpdates(state, shapeUpdates) {
+  if (!shapeUpdates.length) return state;
+  const updatesById = new Map(shapeUpdates.map((u) => [u.id, u]));
+
+  return {
+    shapes: state.shapes.map((shape) => {
+      const update = updatesById.get(shape.id);
+      if (!update) return shape;
+      return { ...shape, x: update.x, y: update.y };
+    }),
+  };
+}
+
 function applySelectionRotation(state, angle) {
   const selectedSeatIds = new Set(state.selectedSeatIds);
   const selectedTextIds = new Set(state.selectedTextIds);
@@ -169,6 +188,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
     // State
     seats: persisted.seats,
     texts: persisted.texts,
+    shapes: Array.isArray(persisted.shapes) ? persisted.shapes : [],
     categories:
       Array.isArray(persisted.categories) && persisted.categories.length > 0
         ? persisted.categories
@@ -189,6 +209,20 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
       set((state) => ({
         texts: state.texts.map((t) =>
           t.id === textId ? { ...t, ...updates } : t,
+        ),
+      })),
+
+    updateShape: (shapeId, updates) =>
+      trackedSet((state) => ({
+        shapes: state.shapes.map((shape) =>
+          shape.id === shapeId ? { ...shape, ...updates } : shape,
+        ),
+      })),
+
+    updateShapePreview: (shapeId, updates) =>
+      set((state) => ({
+        shapes: state.shapes.map((shape) =>
+          shape.id === shapeId ? { ...shape, ...updates } : shape,
         ),
       })),
 
@@ -263,7 +297,11 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
     handleWorldClick: (worldPoint) =>
       trackedSet((state) => {
         if (state.activeTool === TOOL_SELECT) {
-          return { selectedSeatIds: [], selectedTextIds: [] };
+          return {
+            selectedSeatIds: [],
+            selectedTextIds: [],
+            selectedShapeIds: [],
+          };
         }
 
         if (state.activeTool === TOOL_TEXT) {
@@ -285,6 +323,21 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
             ],
             selectedTextIds: [newTextId],
             selectedSeatIds: [],
+            selectedShapeIds: [],
+          };
+        }
+        if (state.activeTool === TOOL_SHAPE) {
+          if (state.selectedShapeType === SHAPE_TYPES.POLYGON) {
+            return state;
+          }
+
+          const newShape = createShape(worldPoint, state.selectedShapeType);
+          return {
+            shapes: [...state.shapes, newShape],
+            selectedShapeIds: [newShape.id],
+            selectedSeatIds: [],
+            selectedTextIds: [],
+            activeTool: TOOL_SELECT,
           };
         }
         if (state.activeTool === TOOL_SEAT) {
@@ -295,6 +348,20 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           return { seats: [...state.seats, newSeat] };
         }
         return state;
+      }),
+
+    addPolygonShape: (points) =>
+      trackedSet((state) => {
+        const newShape = createPolygonShape(points);
+        if (!newShape) return state;
+
+        return {
+          shapes: [...state.shapes, newShape],
+          selectedShapeIds: [newShape.id],
+          selectedSeatIds: [],
+          selectedTextIds: [],
+          activeTool: TOOL_SELECT,
+        };
       }),
 
     submitText: () =>
@@ -334,6 +401,13 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
     moveTextsPreview: (textUpdates) =>
       set((state) => applyTextMoveUpdates(state, textUpdates)),
 
+    moveShapes: (shapeUpdates) =>
+      trackedSet((state) => applyShapeMoveUpdates(state, shapeUpdates)),
+
+    // Used by drag gestures to avoid history entries per mouse move.
+    moveShapesPreview: (shapeUpdates) =>
+      set((state) => applyShapeMoveUpdates(state, shapeUpdates)),
+
     // ─── Erase ───────────────────────────────────────────────────────────────
 
     eraseSeat: (seatId) =>
@@ -354,7 +428,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const rows = {};
 
         updatedSeats.forEach((seat) => {
-          const row = seat.row || "A";   // ensure row exists
+          const row = seat.row || "A"; // ensure row exists
           if (!rows[row]) rows[row] = [];
           rows[row].push(seat);
         });
@@ -379,6 +453,36 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         return {
           seats: finalSeats,
           selectedSeatIds: [],
+        };
+      }),
+
+    eraseText: (textId) =>
+      trackedSet((state) => {
+        if (state.activeTool !== TOOL_ERASER) return state;
+
+        const selectedSet = new Set(state.selectedTextIds);
+        const nextTexts = selectedSet.has(textId)
+          ? state.texts.filter((text) => !selectedSet.has(text.id))
+          : state.texts.filter((text) => text.id !== textId);
+
+        return {
+          texts: nextTexts,
+          selectedTextIds: [],
+        };
+      }),
+
+    eraseShape: (shapeId) =>
+      trackedSet((state) => {
+        if (state.activeTool !== TOOL_ERASER) return state;
+
+        const selectedSet = new Set(state.selectedShapeIds);
+        const nextShapes = selectedSet.has(shapeId)
+          ? state.shapes.filter((shape) => !selectedSet.has(shape.id))
+          : state.shapes.filter((shape) => shape.id !== shapeId);
+
+        return {
+          shapes: nextShapes,
+          selectedShapeIds: [],
         };
       }),
 

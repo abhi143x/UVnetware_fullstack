@@ -21,18 +21,24 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const containerRef = useRef(null);
   const [hoveredSeatId, setHoveredSeatId] = useState(null);
   const [hoveredTextId, setHoveredTextId] = useState(null);
+  const [hoveredShapeId, setHoveredShapeId] = useState(null);
+  const [canvasCursor, setCanvasCursor] = useState(null);
 
-  const setEraseHover = useCallback((seatId, textId) => {
+  const setEraseHover = useCallback((seatId, textId, shapeId) => {
     setHoveredSeatId(seatId);
     setHoveredTextId(textId);
+    setHoveredShapeId(shapeId);
   }, []);
 
   // Store state
   const activeTool = useEditorStore((state) => state.activeTool);
   const seats = useEditorStore((state) => state.seats);
   const texts = useEditorStore((state) => state.texts);
+  const shapes = useEditorStore((state) => state.shapes);
   const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
+  const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
+  const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
   const categories = useEditorStore((state) => state.categories);
   const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
 
@@ -40,14 +46,22 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const handleWorldClick = useEditorStore((state) => state.handleWorldClick);
   const selectSeat = useEditorStore((state) => state.selectSeat);
   const selectText = useEditorStore((state) => state.selectText);
+  const selectShape = useEditorStore((state) => state.selectShape);
   const smartRowSelect = useEditorStore((state) => state.smartRowSelect);
   const moveSeats = useEditorStore((state) => state.moveSeats);
   const moveSeatsPreview = useEditorStore((state) => state.moveSeatsPreview);
   const moveTexts = useEditorStore((state) => state.moveTexts);
   const moveTextsPreview = useEditorStore((state) => state.moveTextsPreview);
+  const moveShapes = useEditorStore((state) => state.moveShapes);
+  const moveShapesPreview = useEditorStore((state) => state.moveShapesPreview);
+  const updateShapePreview = useEditorStore(
+    (state) => state.updateShapePreview,
+  );
+  const addPolygonShape = useEditorStore((state) => state.addPolygonShape);
   const marqueeSelect = useEditorStore((state) => state.marqueeSelect);
   const eraseSeat = useEditorStore((state) => state.eraseSeat);
   const eraseText = useEditorStore((state) => state.eraseText);
+  const eraseShape = useEditorStore((state) => state.eraseShape);
   const commitRow = useEditorStore((state) => state.commitRow);
   const commitArc = useEditorStore((state) => state.commitArc);
   const rotateSelection = useEditorStore((state) => state.rotateSelection);
@@ -68,14 +82,20 @@ function EditorCanvas({ centerOnSeatsRef }) {
       handleWorldClick,
       selectSeat,
       selectText,
+      selectShape,
       smartRowSelect,
       moveSeats,
       moveSeatsPreview,
       moveTexts,
       moveTextsPreview,
+      moveShapes,
+      moveShapesPreview,
+      updateShapePreview,
+      addPolygonShape,
       marqueeSelect,
       eraseSeat,
       eraseText,
+      eraseShape,
       commitRow,
       commitArc,
       rotateSelection,
@@ -83,19 +103,26 @@ function EditorCanvas({ centerOnSeatsRef }) {
       pushHistoryCheckpoint,
       clearSelection,
       setEraseHover,
+      setCanvasCursor,
     }),
     [
       handleWorldClick,
       selectSeat,
       selectText,
+      selectShape,
       smartRowSelect,
       moveSeats,
       moveSeatsPreview,
       moveTexts,
       moveTextsPreview,
+      moveShapes,
+      moveShapesPreview,
+      updateShapePreview,
+      addPolygonShape,
       marqueeSelect,
       eraseSeat,
       eraseText,
+      eraseShape,
       commitRow,
       commitArc,
       rotateSelection,
@@ -103,6 +130,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       pushHistoryCheckpoint,
       clearSelection,
       setEraseHover,
+      setCanvasCursor,
     ],
   );
 
@@ -141,18 +169,21 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseUp,
     handleClick,
   } = useToolHandler(storeActions);
-  const { renderedSeats, renderedTexts } = useRenderedElements(
+  const { renderedShapes, renderedSeats, renderedTexts } = useRenderedElements(
     seats,
     texts,
+    shapes,
     selectedSeatIds,
     selectedTextIds,
+    selectedShapeIds,
     activeTool,
     activeTool === TOOL_ERASER ? hoveredSeatId : null,
     activeTool === TOOL_ERASER ? hoveredTextId : null,
+    activeTool === TOOL_ERASER ? hoveredShapeId : null,
     categories,
   );
   const cursor = useCursor(activeTool, false, false);
-  const { marqueeRect, rowPreviewPoints, arcPreviewPoints } =
+  const { marqueeRect, rowPreviewPoints, arcPreviewPoints, polygonPreview } =
     usePreviewElements(toolSession, activeTool);
 
   // Keyboard shortcuts
@@ -172,10 +203,14 @@ function EditorCanvas({ centerOnSeatsRef }) {
     activeTool,
     seats,
     texts,
+    shapes,
     selectedSeatIds,
     selectedTextIds,
+    selectedShapeIds,
+    selectedShapeType,
     seatsById: new Map(seats.map((seat) => [seat.id, seat])),
     textsById: new Map(texts.map((text) => [text.id, text])),
+    shapesById: new Map(shapes.map((shape) => [shape.id, shape])),
   };
 
   const {
@@ -199,24 +234,28 @@ function EditorCanvas({ centerOnSeatsRef }) {
 
   const handleContainerMouseLeave = useCallback(
     (event) => {
-      setEraseHover(null, null);
+      setEraseHover(null, null, null);
+      setCanvasCursor(null);
       handleStageMouseLeave(event);
     },
-    [setEraseHover, handleStageMouseLeave],
+    [setEraseHover, setCanvasCursor, handleStageMouseLeave],
   );
+
+  const resolvedCursor =
+    canvasCursor ||
+    (cursor === "grabbing"
+      ? "grabbing"
+      : cursor === "crosshair"
+        ? "crosshair"
+        : cursor === "text"
+          ? "text"
+          : "default");
 
   return (
     <section
       ref={containerRef}
-      className={`h-full w-full bg-[#0e1319] select-none relative ${
-        cursor === "grabbing"
-          ? "cursor-grabbing"
-          : cursor === "crosshair"
-            ? "cursor-crosshair"
-            : cursor === "text"
-              ? "cursor-text"
-              : "cursor-default"
-      }`}
+      className="h-full w-full bg-[#0e1319] select-none relative"
+      style={{ cursor: resolvedCursor }}
       onMouseDown={handleStageMouseDown}
       onMouseMove={handleStageMouseMove}
       onMouseUp={handleStageMouseUp}
@@ -227,11 +266,13 @@ function EditorCanvas({ centerOnSeatsRef }) {
       <CanvasStage
         viewport={viewport}
         camera={camera}
+        renderedShapes={renderedShapes}
         renderedSeats={renderedSeats}
         renderedTexts={renderedTexts}
         activeTool={activeTool}
         rowPreviewPoints={rowPreviewPoints}
         arcPreviewPoints={arcPreviewPoints}
+        polygonPreview={polygonPreview}
         marqueeRect={marqueeRect}
         nextRowIndex={nextRowIndex}
       />

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { TOOL_ERASER } from "../constants/tools";
+import ShapeComponent from "../canvas/ShapeComponent";
 import SeatComponent from "../canvas/SeatComponent";
 import TextComponent from "../canvas/TextComponent";
 
@@ -13,11 +14,14 @@ import TextComponent from "../canvas/TextComponent";
 export function useRenderedElements(
   seats,
   texts,
+  shapes,
   selectedSeatIds,
   selectedTextIds,
+  selectedShapeIds,
   activeTool,
   hoveredSeatId,
   hoveredTextId,
+  hoveredShapeId,
   categories = [],
 ) {
   const selectedSeatIdSet = useMemo(
@@ -27,6 +31,10 @@ export function useRenderedElements(
   const selectedTextIdSet = useMemo(
     () => new Set(selectedTextIds),
     [selectedTextIds],
+  );
+  const selectedShapeIdSet = useMemo(
+    () => new Set(selectedShapeIds),
+    [selectedShapeIds],
   );
 
   // Map category id -> color for quick lookup
@@ -78,7 +86,25 @@ export function useRenderedElements(
     });
   }, [texts, selectedTextIdSet, activeTool, hoveredTextId]);
 
+  const renderedShapes = useMemo(() => {
+    return shapes.map((shape) => {
+      const isSelected = selectedShapeIdSet.has(shape.id);
+      const isEraseHovered =
+        activeTool === TOOL_ERASER && shape.id === hoveredShapeId;
+
+      return (
+        <ShapeComponent
+          key={shape.id}
+          shape={shape}
+          isSelected={isSelected}
+          isEraseHovered={isEraseHovered}
+        />
+      );
+    });
+  }, [shapes, selectedShapeIdSet, activeTool, hoveredShapeId]);
+
   return {
+    renderedShapes,
     renderedSeats,
     renderedTexts,
   };
