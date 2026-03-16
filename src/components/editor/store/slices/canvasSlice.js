@@ -28,7 +28,6 @@ export function clearStorageCache() {
     return true;
   } catch {
     return false;
->>>>>>> 03473ff (feat: Implement real-time seat spacing control with cancel functionality,resolves seat spacing overlap and cancel button issues)
   }
 }
 
