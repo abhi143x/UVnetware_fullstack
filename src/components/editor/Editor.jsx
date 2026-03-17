@@ -6,6 +6,10 @@ import PropertiesPanel from "./PropertiesPanel";
 import TemplatesPanel from "./TemplatesPanel";
 import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
 import { useEditorStore } from "./store/editorStore";
+import {
+  buildPersistedLayoutSnapshot,
+  EDITOR_PERSISTENCE_KEY,
+} from "./store/slices/canvasSlice";
 import { TOOL_SELECT, TOOL_SEAT } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
 import { SeatTypeSelector } from "./components/SeatTypeSelector";
@@ -88,6 +92,16 @@ function Editor() {
 
   const [showRestoreMsg, setShowRestoreMsg] = useState(false);
 
+  function persistDraftSnapshot(
+    metadata = layoutMetaRef.current,
+    editorState = useEditorStore.getState(),
+  ) {
+    localStorage.setItem(
+      EDITOR_PERSISTENCE_KEY,
+      JSON.stringify(buildPersistedLayoutSnapshot(editorState, metadata)),
+    );
+  }
+
   useEffect(() => {
     const nav = document.querySelector("nav");
     if (!nav) return;
@@ -112,32 +126,24 @@ function Editor() {
   }, []);
 
   useEffect(() => {
-    // 1️⃣ FIRST: check draft (refresh recovery)
-    const draft = parseStoredJSON("uvnet_editor_draft");
-
-    if (draft) {
-      useEditorStore.setState({
-        seats: draft.seats || [],
-        texts: draft.texts || [],
-        shapes: draft.shapes || [],
-      });
-
-      queueMicrotask(() => {
-        setCurrentLayoutId(draft.currentLayoutId || null);
-        setCurrentLayoutName(draft.currentLayoutName || "");
-        setShowRestoreMsg(true);
-      });
-
-      return;
-    }
-    // 2️⃣ Otherwise: load from MyLayouts
     const saved = parseStoredJSON("uvnet_load_layout");
 
     if (saved) {
+      layoutMetaRef.current = {
+        currentLayoutId: saved.id || null,
+        currentLayoutName: saved.name || "",
+      };
       useEditorStore.setState({
         seats: saved.seats || [],
         texts: saved.texts || [],
         shapes: saved.shapes || [],
+        categories: saved.categories || [],
+        nextRowIndex: saved.nextRowIndex || 0,
+        customSpacing: saved.customSpacing || 48,
+        selectedSeatIds: [],
+        selectedTextIds: [],
+        selectedShapeIds: [],
+        _history: { past: [], future: [] },
       });
 
       queueMicrotask(() => {
@@ -146,6 +152,34 @@ function Editor() {
       });
 
       localStorage.removeItem("uvnet_load_layout");
+      persistDraftSnapshot(layoutMetaRef.current, {
+        ...useEditorStore.getState(),
+        seats: saved.seats || [],
+        texts: saved.texts || [],
+        shapes: saved.shapes || [],
+        categories: saved.categories || [],
+        nextRowIndex: saved.nextRowIndex || 0,
+        customSpacing: saved.customSpacing || 48,
+      });
+      return;
+    }
+
+    const draft = parseStoredJSON(EDITOR_PERSISTENCE_KEY);
+    const hasRestorableDraft = Boolean(
+      draft &&
+        (draft.seats?.length ||
+          draft.texts?.length ||
+          draft.shapes?.length ||
+          draft.currentLayoutId ||
+          draft.currentLayoutName),
+    );
+
+    if (hasRestorableDraft) {
+      queueMicrotask(() => {
+        setCurrentLayoutId(draft.currentLayoutId || null);
+        setCurrentLayoutName(draft.currentLayoutName || "");
+        setShowRestoreMsg(true);
+      });
     }
   }, []);
 
@@ -164,19 +198,12 @@ function Editor() {
       currentLayoutId,
       currentLayoutName,
     };
+    persistDraftSnapshot(layoutMetaRef.current);
   }, [currentLayoutId, currentLayoutName]);
 
   useEffect(() => {
     const unsubscribe = useEditorStore.subscribe((state) => {
-      const draft = {
-        seats: state.seats,
-        texts: state.texts,
-        shapes: state.shapes,
-        currentLayoutId: layoutMetaRef.current.currentLayoutId,
-        currentLayoutName: layoutMetaRef.current.currentLayoutName,
-      };
-
-      localStorage.setItem("uvnet_editor_draft", JSON.stringify(draft));
+      persistDraftSnapshot(layoutMetaRef.current, state);
     });
 
     return () => unsubscribe();
@@ -195,6 +222,9 @@ function Editor() {
     const seats = useEditorStore.getState().seats;
     const texts = useEditorStore.getState().texts;
     const shapes = useEditorStore.getState().shapes;
+    const categories = useEditorStore.getState().categories;
+    const nextRowIndex = useEditorStore.getState().nextRowIndex;
+    const customSpacing = useEditorStore.getState().customSpacing;
 
     // CASE 1: Updating existing layout
     if (currentLayoutId) {
@@ -213,6 +243,9 @@ function Editor() {
             seats,
             texts,
             shapes,
+            categories,
+            nextRowIndex,
+            customSpacing,
             updatedAt: new Date().toISOString(),
           }
           : layout,
@@ -239,6 +272,9 @@ function Editor() {
         seats,
         texts,
         shapes,
+        categories,
+        nextRowIndex,
+        customSpacing,
         createdAt: new Date().toISOString(),
       };
 
@@ -252,8 +288,6 @@ function Editor() {
 
     setSaveStatus("saved");
     setTimeout(() => setSaveStatus("idle"), 2000);
-
-    localStorage.removeItem("uvnet_editor_draft");
   }
 
   function handleClear() {
@@ -264,7 +298,6 @@ function Editor() {
       clearLayout();
       setCurrentLayoutId(null);
       setCurrentLayoutName("");
-      localStorage.removeItem("uvnet_editor_draft"); // ✅ clear draft
     }
   }
 
