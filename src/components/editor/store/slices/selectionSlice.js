@@ -341,6 +341,14 @@ export function createSelectionSlice(set, get, { trackedSet }) {
           activeTool: TOOL_SELECT,
         };
       }),
+    selectAll: () =>
+      set((state) => ({
+        selectedSeatIds:  state.seats.map((s) => s.id),
+        selectedTextIds:  state.texts.map((t) => t.id),
+        selectedShapeIds: state.shapes.map((s) => s.id),
+        activeTool: TOOL_SELECT,
+      })),
+
     cutSelection: () => {
       get().copySelection();
       get().deleteSelection();

@@ -30,6 +30,8 @@ function Editor() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [navbarHeight, setNavbarHeight] = useState(72);
   const centerOnSeatsRef = useRef(null);
+  const zoomControlRef = useRef(null);
+  const [zoomPercent, setZoomPercent] = useState(100);
 
   const activeTool = useEditorStore((state) => state.activeTool);
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
@@ -103,6 +105,16 @@ function Editor() {
       JSON.stringify(buildPersistedLayoutSnapshot(editorState, metadata)),
     );
   }
+
+  // U-03: Poll the zoom level from EditorCanvas ref ~10fps (cheap, avoids prop drilling)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (zoomControlRef.current?.zoomPercent !== undefined) {
+        setZoomPercent(zoomControlRef.current.zoomPercent);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const nav = document.querySelector("nav");
@@ -204,11 +216,18 @@ function Editor() {
   }, [currentLayoutId, currentLayoutName]);
 
   useEffect(() => {
+    let debounceTimer = null;
     const unsubscribe = useEditorStore.subscribe((state) => {
-      persistDraftSnapshot(layoutMetaRef.current, state);
+      // P-02: debounce to avoid 60 writes/sec during drag
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        persistDraftSnapshot(layoutMetaRef.current, state);
+      }, 500);
     });
-
-    return () => unsubscribe();
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
   }, []);
 
   function handleSave() {
@@ -315,7 +334,7 @@ function Editor() {
         className={`relative flex-1 ${isOverCapacity ? "min-h-240 min-w-400" : "min-h-full min-w-full"
           }`}
       >
-        <EditorCanvas centerOnSeatsRef={centerOnSeatsRef} />
+        <EditorCanvas centerOnSeatsRef={centerOnSeatsRef} zoomControlRef={zoomControlRef} />
 
         {showRestoreMsg && (
           <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
@@ -332,6 +351,24 @@ function Editor() {
               <span className="rounded-md border border-white/10 bg-[#0f1621] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#95a8c3]">
                 Seats {seatCount} / 500
               </span>
+              {/* U-03: Zoom controls */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => zoomControlRef.current?.zoomOut()}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-[#0f1621] text-[#95a8c3] hover:bg-white/10 text-xs font-bold"
+                  title="Zoom out (Ctrl+Wheel)"
+                >−</button>
+                <span className="min-w-[38px] text-center rounded border border-white/10 bg-[#0f1621] px-1.5 py-1 text-[10px] font-semibold text-[#95a8c3]">
+                  {zoomPercent}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => zoomControlRef.current?.zoomIn()}
+                  className="flex h-6 w-6 items-center justify-center rounded border border-white/10 bg-[#0f1621] text-[#95a8c3] hover:bg-white/10 text-xs font-bold"
+                  title="Zoom in (Ctrl+Wheel)"
+                >+</button>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowTemplates((v) => !v)}

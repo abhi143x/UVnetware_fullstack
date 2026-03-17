@@ -3,10 +3,10 @@
 // `trackedSet` wrapper that automatically records history for every
 // state-changing Zustand `set()` call that touches tracked fields.
 
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 30;
 
 /** Fields that form a "layout snapshot". */
-const TRACKED_KEYS = ["seats", "texts", "shapes", "categories", "nextRowIndex"];
+const TRACKED_KEYS = ["seats", "texts", "shapes", "categories", "nextRowIndex", "selectedSeatIds", "selectedTextIds", "selectedShapeIds"];
 
 /** Pull only the tracked fields out of the full store state. */
 export function createSnapshot(state) {
@@ -68,9 +68,6 @@ export function undoAction(set) {
       const prev = past[past.length - 1];
       return {
         ...prev,
-        selectedSeatIds: [],
-        selectedTextIds: [],
-        selectedShapeIds: [],
         _history: {
           past: past.slice(0, -1),
           future: [createSnapshot(state), ...future],
@@ -89,9 +86,6 @@ export function redoAction(set) {
       const [next, ...rest] = future;
       return {
         ...next,
-        selectedSeatIds: [],
-        selectedTextIds: [],
-        selectedShapeIds: [],
         _history: {
           past: [...past, createSnapshot(state)].slice(-MAX_HISTORY),
           future: rest,

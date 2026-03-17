@@ -18,7 +18,7 @@ import { useEditorStore } from "./store/editorStore";
 import { TOOL_ERASER, TOOL_TEXT } from "./constants/tools";
 import ArcFloatingEditor from "./ArcFloatingEditor";
 
-function EditorCanvas({ centerOnSeatsRef }) {
+function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   const containerRef = useRef(null);
   const [hoveredSeatId, setHoveredSeatId] = useState(null);
   const [hoveredTextId, setHoveredTextId] = useState(null);
@@ -33,6 +33,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
 
   // Store state
   const activeTool = useEditorStore((state) => state.activeTool);
+  const setActiveTool = useEditorStore((state) => state.setActiveTool);
   const seats = useEditorStore((state) => state.seats);
   const texts = useEditorStore((state) => state.texts);
   const shapes = useEditorStore((state) => state.shapes);
@@ -74,6 +75,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
     (state) => state.pushHistoryCheckpoint,
   );
   const clearSelection = useEditorStore((state) => state.clearSelection);
+  const selectAll = useEditorStore((state) => state.selectAll);
   const copySelection = useEditorStore((state) => state.copySelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
   const deleteSelection = useEditorStore((state) => state.deleteSelection);
@@ -158,6 +160,16 @@ function EditorCanvas({ centerOnSeatsRef }) {
     }
   }, [centerOnSeats, centerOnSeatsRef]);
 
+  // U-03: Expose zoom controls + current scale so Editor can show zoom UI
+  useEffect(() => {
+    if (!zoomControlRef) return;
+    zoomControlRef.current = {
+      zoomIn:  () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale * 1.2),
+      zoomOut: () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale / 1.2),
+      zoomPercent: Math.round(camera.scale * 100),
+    };
+  }, [camera.scale, viewport, zoomToPoint, zoomControlRef]);
+
   // Auto-center on template load (when templateVersion changes)
   const templateVersion = useEditorStore((state) => state.templateVersion);
   useEffect(() => {
@@ -190,6 +202,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
     activeTool === TOOL_ERASER ? hoveredTextId : null,
     activeTool === TOOL_ERASER ? hoveredShapeId : null,
     categories,
+    camera,
+    viewport,
   );
   const cursor = useCursor(activeTool, false, false);
   const {
@@ -212,6 +226,9 @@ function EditorCanvas({ centerOnSeatsRef }) {
       onCut: cutSelection,
       onUndo: undo,
       onRedo: redo,
+      onToolChange: setActiveTool,
+      onSelectAll: selectAll,
+      onFitView: () => centerOnSeats(seats),
     },
   );
 
