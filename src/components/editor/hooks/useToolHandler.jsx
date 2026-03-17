@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { ToolManager } from "../tools/ToolManager";
-import { TOOL_ERASER } from "../constants/tools";
-import { TOOL_SELECT } from "../constants/tools";
+import { TOOL_ERASER, TOOL_SELECT, TOOL_TEXT } from "../constants/tools";
 
 export function useToolHandler(storeActions) {
   const toolManagerRef = useRef(null);
@@ -25,7 +24,8 @@ export function useToolHandler(storeActions) {
       if (
         !toolSession &&
         context.activeTool !== TOOL_ERASER &&
-        context.activeTool !== TOOL_SELECT
+        context.activeTool !== TOOL_SELECT &&
+        context.activeTool !== TOOL_TEXT
       )
         return;
 

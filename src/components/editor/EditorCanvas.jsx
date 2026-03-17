@@ -15,7 +15,7 @@ import { useRenderedElements } from "./hooks/useRenderedElements";
 import { useToolHandler } from "./hooks/useToolHandler";
 import { useViewport } from "./hooks/useViewport";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ERASER } from "./constants/tools";
+import { TOOL_ERASER, TOOL_TEXT } from "./constants/tools";
 import ArcFloatingEditor from "./ArcFloatingEditor";
 
 function EditorCanvas({ centerOnSeatsRef }) {
@@ -239,6 +239,10 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseMove(e, wp, context);
   }, [handleMouseMove, context]);
 
+  const handleEditorClick = useCallback((e, wp) => {
+    handleMouseDown(e, wp, context);
+  }, [handleMouseDown, context]);
+
   const handleEditorMouseUp = useCallback((e, wp) => {
     handleMouseUp(e, wp, context);
   }, [handleMouseUp, context]);
@@ -324,6 +328,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       onClick={(e) => {
         if (isArcEditorTarget(e.target)) return;
         if (e.target.closest("[data-type='text']")) return;
+        // Allow canvas clicks for text tool to create new text
         handleStageClick(e);
       }}
       onContextMenu={(event) => {

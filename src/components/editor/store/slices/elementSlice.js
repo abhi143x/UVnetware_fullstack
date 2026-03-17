@@ -1014,26 +1014,46 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         }
 
         if (state.activeTool === TOOL_TEXT) {
-          const newTextId = createId(ELEMENT_TYPES.TEXT);
-          return {
-            texts: [
-              ...state.texts,
-              {
-                id: newTextId,
-                x: worldPoint.x,
-                y: worldPoint.y,
-                content: "Text",
-                fontSize: 20,
-                fill: "#c9d6ea",
-                fontWeight: "normal",
-                fontStyle: "normal",
-                rotate: 0,
-              },
-            ],
-            selectedTextIds: [newTextId],
-            selectedSeatIds: [],
-            selectedShapeIds: [],
-          };
+          // Check if clicking on existing text
+          const clickedText = state.texts.find(text => {
+            const distance = Math.sqrt(
+              Math.pow(text.x - worldPoint.x, 2) + Math.pow(text.y - worldPoint.y, 2)
+            );
+            // Use dynamic selection radius based on font size
+            const selectionRadius = Math.max(30, text.fontSize || 20);
+            return distance < selectionRadius;
+          });
+
+          if (clickedText) {
+            // Select existing text for editing
+            return {
+              selectedTextIds: [clickedText.id],
+              selectedSeatIds: [],
+              selectedShapeIds: [],
+            };
+          } else {
+            // Create new text
+            const newTextId = createId(ELEMENT_TYPES.TEXT);
+            return {
+              texts: [
+                ...state.texts,
+                {
+                  id: newTextId,
+                  x: worldPoint.x,
+                  y: worldPoint.y,
+                  content: "Text",
+                  fontSize: 20,
+                  fill: "#c9d6ea",
+                  fontWeight: "normal",
+                  fontStyle: "normal",
+                  rotate: 0,
+                },
+              ],
+              selectedTextIds: [newTextId],
+              selectedSeatIds: [],
+              selectedShapeIds: [],
+            };
+          }
         }
         if (state.activeTool === TOOL_SHAPE) {
           if (state.selectedShapeType === SHAPE_TYPES.POLYGON) {

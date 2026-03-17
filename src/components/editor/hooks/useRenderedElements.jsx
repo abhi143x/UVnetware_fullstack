@@ -97,11 +97,12 @@ export function useRenderedElements(
             textItem={textItem}
             isSelected={isSelected}
             isEraseHovered={isEraseHovered}
+            activeTool={activeTool}
           />
         </g>
-    );
+      );
     });
-  }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId]);
+  }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId, activeTool]);
 
   const renderedShapes = useMemo(() => {
     return shapes.map((shape) => {

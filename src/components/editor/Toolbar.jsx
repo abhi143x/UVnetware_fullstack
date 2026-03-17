@@ -99,6 +99,9 @@ function Toolbar({
   selectedShapeType = "rectangle",
   onShapeTypeChange,
 }) {
+  const handleToolChange = (toolId) => {
+    onToolChange(toolId);
+  };
   const [isShapeMenuOpen, setShapeMenuOpen] = useState(false);
   const activeShape = useMemo(
     () =>

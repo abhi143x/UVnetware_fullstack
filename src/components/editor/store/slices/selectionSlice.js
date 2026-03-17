@@ -1,7 +1,7 @@
 // ─── Selection Slice ──────────────────────────────────────────────────────────
 // Manages seat/text selection, grouped seat selection, marquee, and copy/paste.
 
-import { TOOL_SELECT } from "../../constants/tools";
+import { TOOL_SELECT, TOOL_TEXT } from "../../constants/tools";
 import {
   DEFAULT_SEAT_RADIUS,
   createId,
@@ -100,7 +100,7 @@ export function createSelectionSlice(set, get, { trackedSet }) {
 
     selectText: (textId, shiftKey) =>
       set((state) => {
-        if (state.activeTool !== TOOL_SELECT) return state;
+        if (state.activeTool !== TOOL_SELECT && state.activeTool !== TOOL_TEXT) return state;
 
         if (!shiftKey) {
           return { selectedTextIds: [textId] };
