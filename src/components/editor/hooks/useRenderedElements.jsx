@@ -86,13 +86,20 @@ export function useRenderedElements(
         isEraseModeActive && textItem.id === hoveredTextId;
 
       return (
-        <TextComponent
+        <g
           key={textItem.id}
-          textItem={textItem}
-          isSelected={isSelected}
-          isEraseHovered={isEraseHovered}
-        />
-      );
+          data-type="text"
+          onClick={(e) => {
+            e.stopPropagation();   
+          }}
+        >
+          <TextComponent
+            textItem={textItem}
+            isSelected={isSelected}
+            isEraseHovered={isEraseHovered}
+          />
+        </g>
+    );
     });
   }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId]);
 

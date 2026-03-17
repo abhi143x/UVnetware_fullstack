@@ -30,12 +30,13 @@ export function usePreviewElements(toolSession, _activeTool) {
 
   const polygonPreview = useMemo(() => {
     if (toolSession?.type !== "polygon_drawing") {
-      return { points: [], previewPoint: null };
+      return { points: [], previewPoint: null, isClosing: false };
     }
 
     return {
       points: toolSession.points || [],
       previewPoint: toolSession.previewPoint || null,
+      isClosing: !!toolSession.isClosing,
     };
   }, [toolSession]);
 

@@ -48,6 +48,8 @@ function Editor() {
   const [currentLayoutId, setCurrentLayoutId] = useState(null);
   const [currentLayoutName, setCurrentLayoutName] = useState("");
 
+  const [showRestoreMsg, setShowRestoreMsg] = useState(false);
+
   useEffect(() => {
     const nav = document.querySelector("nav");
     if (!nav) return;
@@ -72,6 +74,26 @@ function Editor() {
   }, []);
 
   useEffect(() => {
+    // 1️⃣ FIRST: check draft (refresh recovery)
+    const draft = localStorage.getItem("uvnet_editor_draft");
+
+    if (draft) {
+      const parsed = JSON.parse(draft);
+
+      useEditorStore.setState({
+        seats: parsed.seats || [],
+        texts: parsed.texts || [],
+        shapes: parsed.shapes || [],
+      });
+
+      setCurrentLayoutId(parsed.currentLayoutId || null);
+      setCurrentLayoutName(parsed.currentLayoutName || "");
+
+      setShowRestoreMsg(true); // ✅ SHOW MESSAGE
+
+      return;
+    }
+    // 2️⃣ Otherwise: load from MyLayouts
     const saved = localStorage.getItem("uvnet_load_layout");
 
     if (saved) {
@@ -89,6 +111,32 @@ function Editor() {
       localStorage.removeItem("uvnet_load_layout");
     }
   }, []);
+
+  useEffect(() => {
+    if (showRestoreMsg) {
+      const timer = setTimeout(() => {
+        setShowRestoreMsg(false);
+      }, 2500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [showRestoreMsg]);
+
+  useEffect(() => {
+    const unsubscribe = useEditorStore.subscribe((state) => {
+      const draft = {
+        seats: state.seats,
+        texts: state.texts,
+        shapes: state.shapes,
+        currentLayoutId,
+        currentLayoutName,
+      };
+
+      localStorage.setItem("uvnet_editor_draft", JSON.stringify(draft));
+    });
+
+    return () => unsubscribe();
+  }, [currentLayoutId, currentLayoutName]);
 
   function handleSave() {
     const user = JSON.parse(localStorage.getItem("uvnet_auth_user"));
@@ -161,6 +209,8 @@ function Editor() {
 
     setSaveStatus("saved");
     setTimeout(() => setSaveStatus("idle"), 2000);
+
+    localStorage.removeItem("uvnet_editor_draft");
   }
 
   function handleClear() {
@@ -169,6 +219,9 @@ function Editor() {
       window.confirm(`Clear all ${seatCount} seat(s)? This cannot be undone.`)
     ) {
       clearLayout();
+      setCurrentLayoutId(null);
+      setCurrentLayoutName("");
+      localStorage.removeItem("uvnet_editor_draft"); // ✅ clear draft
     }
   }
 
@@ -201,6 +254,14 @@ function Editor() {
           }`}
       >
         <EditorCanvas centerOnSeatsRef={centerOnSeatsRef} />
+
+        {showRestoreMsg && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50">
+            <div className="px-8 py-2 rounded-md bg-blue-500 text-white text-sm shadow-lg">
+              Layout Restored
+            </div>
+          </div>
+        )}
 
         {/* Top strip below navbar: primary actions */}
         <div className="absolute left-3 right-3 top-3 z-20">

@@ -196,6 +196,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseMove,
     handleMouseUp,
     handleClick,
+    handleContextMenu,
+    handleKeyDown,
   } = useToolHandler(storeActions);
 
   const { renderedShapes, renderedSeats, renderedTexts } = useRenderedElements(
@@ -256,6 +258,29 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseUp(e, wp, context);
   }, [handleMouseUp, context]);
 
+  const handleToolKeyDown = useCallback(
+    (event) => handleKeyDown(event, context),
+    [handleKeyDown, context],
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    (event) => {
+      const handledByTool = handleToolKeyDown(event);
+      if (handledByTool) return true;
+      deleteSelection();
+      return true;
+    },
+    (event) => handleToolKeyDown(event),
+    {
+      onCopy: copySelection,
+      onPaste: pasteClipboard,
+      onCut: cutSelection,
+      onUndo: undo,
+      onRedo: redo,
+    },
+  );
+
   const {
     handleMouseDown: handleStageMouseDown,
     handleMouseMove: handleStageMouseMove,
@@ -303,8 +328,19 @@ function EditorCanvas({ centerOnSeatsRef }) {
       onMouseMove={handleStageMouseMove}
       onMouseUp={handleStageMouseUp}
       onMouseLeave={handleContainerMouseLeave}
-      onClick={handleStageClick}
-      onContextMenu={(e) => e.preventDefault()}
+      onClick={(e) => {
+        if (e.target.closest("[data-type='text']")) return;
+        handleStageClick(e);
+      }}
+      onContextMenu={(event) => {
+        const worldPoint = getWorldPointFromStage(event.clientX, event.clientY);
+        const handledByTool = worldPoint
+          ? handleContextMenu(event, worldPoint, context)
+          : false;
+        if (!handledByTool) {
+          event.preventDefault();
+        }
+      }}
     >
       <CanvasStage
         viewport={viewport}
