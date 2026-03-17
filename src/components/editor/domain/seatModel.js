@@ -22,6 +22,9 @@
  * @property {string|null} [category]
  * @property {number} [radius]
  * @property {number} [size]
+ * @property {number} [width]
+ * @property {number} [height]
+ * @property {string} [seatType]
  * @property {string} [fill]
  * @property {string} [stroke]
  * @property {string|null} [row]
@@ -31,30 +34,33 @@
  */
 
 export const SEAT_MODEL_FIELDS = Object.freeze([
-    "id",
-    "x",
-    "y",
-    "rotation",
-    "label",
-    "groupId",
-    "groupType",
-    "rowId",
-    "arcId",
-    "arcCenterX",
-    "arcCenterY",
-    "arcRadius",
-    "arcAngle",
-    "arcRotation",
-    "arcSeatCount",
-    "arcSeatIndex",
-    "arcSeatSpacing",
-    "category",
-    "radius",
-    "size",
-    "fill",
-    "stroke",
-    "row",
-    "number",
-    "status",
-    "price",
+  "id",
+  "x",
+  "y",
+  "rotation",
+  "label",
+  "groupId",
+  "groupType",
+  "rowId",
+  "arcId",
+  "arcCenterX",
+  "arcCenterY",
+  "arcRadius",
+  "arcAngle",
+  "arcRotation",
+  "arcSeatCount",
+  "arcSeatIndex",
+  "arcSeatSpacing",
+  "category",
+  "radius",
+  "size",
+  "width",
+  "height",
+  "seatType",
+  "fill",
+  "stroke",
+  "row",
+  "number",
+  "status",
+  "price",
 ]);

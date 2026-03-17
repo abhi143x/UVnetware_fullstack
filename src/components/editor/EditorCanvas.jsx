@@ -55,6 +55,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const moveTextsPreview = useEditorStore((state) => state.moveTextsPreview);
   const moveShapes = useEditorStore((state) => state.moveShapes);
   const moveShapesPreview = useEditorStore((state) => state.moveShapesPreview);
+  const resizeSeats = useEditorStore((state) => state.resizeSeats);
   const updateShapePreview = useEditorStore(
     (state) => state.updateShapePreview,
   );
@@ -96,6 +97,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       moveTextsPreview,
       moveShapes,
       moveShapesPreview,
+      resizeSeats,
       updateShapePreview,
       addPolygonShape,
       marqueeSelect,
@@ -123,6 +125,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       moveTextsPreview,
       moveShapes,
       moveShapesPreview,
+      resizeSeats,
       updateShapePreview,
       addPolygonShape,
       marqueeSelect,
@@ -194,6 +197,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseUp,
     handleClick,
   } = useToolHandler(storeActions);
+
   const { renderedShapes, renderedSeats, renderedTexts } = useRenderedElements(
     seats,
     texts,
@@ -214,7 +218,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
   // Keyboard shortcuts
   useKeyboardShortcuts(
     deleteSelection,
-    () => {}, // escape handler
+    () => { }, // escape handler
     {
       onCopy: copySelection,
       onPaste: pasteClipboard,
@@ -224,8 +228,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
     },
   );
 
-  // Context for tool handlers
-  const context = {
+  // Context for tool handlers - create early so callbacks can use it
+  const context = useMemo(() => ({
     activeTool,
     seats,
     texts,
@@ -237,7 +241,20 @@ function EditorCanvas({ centerOnSeatsRef }) {
     seatsById: new Map(seats.map((seat) => [seat.id, seat])),
     textsById: new Map(texts.map((text) => [text.id, text])),
     shapesById: new Map(shapes.map((shape) => [shape.id, shape])),
-  };
+  }), [activeTool, seats, texts, shapes, selectedSeatIds, selectedTextIds, selectedShapeIds, selectedShapeType]);
+
+  // Custom mouse handlers that detect resize
+  const handleEditorMouseDown = useCallback((e, wp) => {
+    handleMouseDown(e, wp, context);
+  }, [handleMouseDown, context]);
+
+  const handleEditorMouseMove = useCallback((e, wp) => {
+    handleMouseMove(e, wp, context);
+  }, [handleMouseMove, context]);
+
+  const handleEditorMouseUp = useCallback((e, wp) => {
+    handleMouseUp(e, wp, context);
+  }, [handleMouseUp, context]);
 
   const {
     handleMouseDown: handleStageMouseDown,
@@ -252,9 +269,9 @@ function EditorCanvas({ centerOnSeatsRef }) {
     getWorldPointFromStage,
     panCamera,
     zoomToPoint,
-    onToolMouseDown: (e, wp) => handleMouseDown(e, wp, context),
-    onToolMouseMove: (e, wp) => handleMouseMove(e, wp, context),
-    onToolMouseUp: (e, wp) => handleMouseUp(e, wp, context),
+    onToolMouseDown: handleEditorMouseDown,
+    onToolMouseMove: handleEditorMouseMove,
+    onToolMouseUp: handleEditorMouseUp,
     onToolClick: (e, wp) => handleClick(e, wp, context),
   });
 

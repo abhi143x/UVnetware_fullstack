@@ -7,8 +7,9 @@ import ArcToolPanel from "./ArcToolPanel";
 import TemplatesPanel from "./TemplatesPanel";
 import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ARC, TOOL_SELECT } from "./constants/tools";
+import { TOOL_ARC, TOOL_SELECT, TOOL_SEAT } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
+import { SeatTypeSelector } from "./components/SeatTypeSelector";
 
 function Editor() {
   const [saveStatus, setSaveStatus] = useState("idle"); // 'idle' | 'saved'
@@ -22,8 +23,12 @@ function Editor() {
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
   const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
   const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
+  const selectedSeatType = useEditorStore((state) => state.selectedSeatType);
   const setSelectedShapeType = useEditorStore(
     (state) => state.setSelectedShapeType,
+  );
+  const setSelectedSeatType = useEditorStore(
+    (state) => state.setSelectedSeatType,
   );
   const seatCount = useEditorStore((state) => state.seats.length);
 
@@ -112,13 +117,13 @@ function Editor() {
       const updatedLayouts = layouts.map((layout) =>
         layout.id === currentLayoutId
           ? {
-              ...layout,
-              name: newName,
-              seats,
-              texts,
-              shapes,
-              updatedAt: new Date().toISOString(),
-            }
+            ...layout,
+            name: newName,
+            seats,
+            texts,
+            shapes,
+            updatedAt: new Date().toISOString(),
+          }
           : layout,
       );
 
@@ -192,9 +197,8 @@ function Editor() {
       }}
     >
       <div
-        className={`relative flex-1 ${
-          isOverCapacity ? "min-h-240 min-w-400" : "min-h-full min-w-full"
-        }`}
+        className={`relative flex-1 ${isOverCapacity ? "min-h-240 min-w-400" : "min-h-full min-w-full"
+          }`}
       >
         <EditorCanvas centerOnSeatsRef={centerOnSeatsRef} />
 
@@ -208,11 +212,10 @@ function Editor() {
               <button
                 type="button"
                 onClick={() => setShowTemplates((v) => !v)}
-                className={`rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all ${
-                  showTemplates
+                className={`rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all ${showTemplates
                     ? "border-[#587cb3]/45 bg-[#587cb3]/20 text-[#d6e5fb]"
                     : "border-white/15 bg-[#11161c]/75 text-[#9fb0c8] hover:border-white/25"
-                }`}
+                  }`}
               >
                 Templates
               </button>
@@ -222,11 +225,10 @@ function Editor() {
               <button
                 type="button"
                 onClick={handleSave}
-                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
-                  saveStatus === "saved"
+                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${saveStatus === "saved"
                     ? "border-green-500/50 bg-green-600/20 text-green-300"
                     : "border-[#587cb3]/35 bg-[#587cb3]/15 text-[#c9d6ea] hover:bg-[#587cb3]/25"
-                }`}
+                  }`}
               >
                 {saveStatus === "saved" ? "Saved" : "Save Layout"}
               </button>
@@ -258,13 +260,24 @@ function Editor() {
           </div>
         </aside>
 
+        {/* Seat Type Selector Panel */}
+        {activeTool === TOOL_SEAT && (
+          <aside className="absolute bottom-3 left-22 top-18 z-20 w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
+            <div className="h-full flex flex-col p-4">
+              <SeatTypeSelector
+                selectedType={selectedSeatType}
+                onSelectType={setSelectedSeatType}
+              />
+            </div>
+          </aside>
+        )}
+
         {/* Templates drawer */}
         <aside
-          className={`absolute bottom-3 left-22 top-18 z-20 w-[min(320px,calc(100vw-7rem))] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-all duration-200 ${
-            showTemplates
+          className={`absolute bottom-3 left-22 top-18 z-20 w-[min(320px,calc(100vw-7rem))] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-all duration-200 ${showTemplates
               ? "translate-x-0 opacity-100 pointer-events-auto"
               : "-translate-x-6 opacity-0 pointer-events-none"
-          }`}
+            }`}
         >
           <TemplatesPanel onTemplateLoad={handleTemplateLoad} />
         </aside>
