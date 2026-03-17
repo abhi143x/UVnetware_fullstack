@@ -69,8 +69,16 @@ function SelectedSeatSpacingControl() {
     const currentRightmostPosition = rightmostX
     const newRightmostPosition = leftmostX + ((selectedSeats.length - 1) * newSpacing)
     
+    // No boundary limits - allow full spacing expansion
+    const adjustedSpacing = newSpacing
+    
+    console.log('Applying spacing:', adjustedSpacing, 'for', selectedSeats.length, 'seats')
+    
+    // Recalculate with adjusted spacing
+    const finalRightmostPosition = leftmostX + ((selectedSeats.length - 1) * adjustedSpacing)
+    
     // Calculate how much the rightmost seat moved
-    const positionShift = newRightmostPosition - currentRightmostPosition
+    const positionShift = finalRightmostPosition - currentRightmostPosition
     
     // Find all seats that come after the rightmost selected seat
     const seatsToMove = seats.filter(seat => 
@@ -81,7 +89,7 @@ function SelectedSeatSpacingControl() {
       // Handle selected seats
       if (selectedSeatIds.includes(seat.id)) {
         const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id)
-        let targetX = leftmostX + (seatIndex * newSpacing)
+        let targetX = leftmostX + (seatIndex * adjustedSpacing)
         
         // Check for overlaps with non-selected seats (only those before the selected area)
         const seatRadius = 15 // Approximate seat radius
@@ -104,18 +112,22 @@ function SelectedSeatSpacingControl() {
           }
         }
         
+        console.log(`Moving seat ${seat.id} from ${seat.x} to ${targetX}`)
         return { ...seat, x: targetX }
       }
       
       // Handle seats that come after the selected area - move them forward in preview
       if (seatsToMove.find(s => s.id === seat.id)) {
-        return { ...seat, x: seat.x + positionShift }
+        const newX = seat.x + positionShift
+        console.log(`Moving subsequent seat ${seat.id} from ${seat.x} to ${newX}`)
+        return { ...seat, x: newX }
       }
       
       // Other seats remain unchanged
       return seat
     })
     
+    console.log('Updated seats:', updatedSeats)
     // Direct update without history tracking for preview
     useEditorStore.setState({ seats: updatedSeats })
   }
