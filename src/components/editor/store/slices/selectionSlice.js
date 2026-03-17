@@ -302,11 +302,19 @@ export function createSelectionSlice(set, get, { trackedSet }) {
         const pastedShapes = (clipboard.shapes || []).map((shape) => {
           const newId = createId(ELEMENT_TYPES.SHAPE);
           newShapeIds.push(newId);
+          const dx = clipboard.cx + shape.x + offset - shape.x;
+          const dy = clipboard.cy + shape.y + offset - shape.y;
+          // BUG-15: offset polygon absolute points so they move with the shape
+          const offsetPoints =
+            Array.isArray(shape.points)
+              ? shape.points.map((pt) => ({ ...pt, x: pt.x + dx, y: pt.y + dy }))
+              : shape.points;
           return {
             ...shape,
             id: newId,
             x: clipboard.cx + shape.x + offset,
             y: clipboard.cy + shape.y + offset,
+            ...(offsetPoints !== shape.points && { points: offsetPoints }),
           };
         });
 

@@ -278,12 +278,22 @@ export class SelectTool {
   }
 
   findSeatAtPoint(point, seats) {
-    // Find seat within click tolerance (simple implementation)
     return seats.find((seat) => {
+      // Rectangular seat types: AABB hit test using width/height (BUG-08)
+      if (seat.width && seat.height) {
+        const halfW = seat.width / 2;
+        const halfH = seat.height / 2;
+        return (
+          point.x >= seat.x - halfW &&
+          point.x <= seat.x + halfW &&
+          point.y >= seat.y - halfH &&
+          point.y <= seat.y + halfH
+        );
+      }
+      // Default: circular hit test
       const dx = point.x - seat.x;
       const dy = point.y - seat.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance <= seat.radius;
+      return Math.sqrt(dx * dx + dy * dy) <= seat.radius;
     });
   }
 
