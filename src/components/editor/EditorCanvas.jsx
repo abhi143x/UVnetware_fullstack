@@ -286,7 +286,10 @@ function EditorCanvas({ centerOnSeatsRef }) {
       onMouseMove={handleStageMouseMove}
       onMouseUp={handleStageMouseUp}
       onMouseLeave={handleContainerMouseLeave}
-      onClick={handleStageClick}
+      onClick={(e) => {
+        if (e.target.closest("[data-type='text']")) return;
+        handleStageClick(e);
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <CanvasStage
