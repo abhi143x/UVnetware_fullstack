@@ -105,25 +105,44 @@ export function useViewport(containerRef) {
       if (s.y < minY) minY = s.y
       if (s.y > maxY) maxY = s.y
     }
-    const padW = 80
-    const padH = 80
+
+    // Use synchronous measurement if viewport state hasn't settled yet
+    let currentWidth = viewport.width
+    let currentHeight = viewport.height
+
+    if (currentWidth <= 1 || currentHeight <= 1) {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect) {
+        currentWidth = rect.width
+        currentHeight = rect.height
+      }
+    }
+
+    // Generous padding to ensure seats are clearly visible
+    const padW = 120
+    const padH = 120
     const worldW = (maxX - minX) + padW * 2 || 1
     const worldH = (maxY - minY) + padH * 2 || 1
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
 
-    const scaleX = viewport.width / worldW
-    const scaleY = viewport.height / worldH
-    const newScale = clamp(Math.min(scaleX, scaleY), MIN_SCALE, MAX_SCALE)
+    const scaleX = currentWidth / worldW
+    const scaleY = currentHeight / worldH
+
+    // Ensure we don't zoom out too much; "clearly visible" means a reasonable scale
+    // If it's a small number of seats, we can zoom in quite a bit (up to 0.8)
+    const viewableMinScale = seats.length < 50 ? 0.6 : 0.35
+    const calculatedScale = Math.min(scaleX, scaleY)
+    const newScale = clamp(Math.max(calculatedScale, viewableMinScale), MIN_SCALE, MAX_SCALE)
 
     setCamera({
       scale: newScale,
       position: {
-        x: viewport.width / 2 - cx * newScale,
-        y: viewport.height / 2 - cy * newScale,
+        x: currentWidth / 2 - cx * newScale,
+        y: currentHeight / 2 - cy * newScale,
       },
     })
-  }, [viewport, setCamera])
+  }, [viewport, setCamera, containerRef])
 
   return {
     viewport,

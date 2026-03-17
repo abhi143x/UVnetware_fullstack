@@ -74,6 +74,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const clearSelection = useEditorStore((state) => state.clearSelection);
   const copySelection = useEditorStore((state) => state.copySelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
+  const deleteSelection = useEditorStore((state) => state.deleteSelection);
+  const cutSelection = useEditorStore((state) => state.cutSelection);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
 
@@ -156,8 +158,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const templateVersion = useEditorStore((state) => state.templateVersion);
   useEffect(() => {
     if (templateVersion > 0 && seats.length > 0) {
-      // Delay to let viewport sizing settle after navigation
-      const timer = setTimeout(() => centerOnSeats(seats), 120);
+      // Delay to let viewport sizing settle after navigation/load
+      const timer = setTimeout(() => centerOnSeats(seats), 250);
       return () => clearTimeout(timer);
     }
   }, [templateVersion]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -188,11 +190,12 @@ function EditorCanvas({ centerOnSeatsRef }) {
 
   // Keyboard shortcuts
   useKeyboardShortcuts(
-    () => storeActions.clearSelection(),
+    deleteSelection,
     () => {}, // escape handler
     {
       onCopy: copySelection,
       onPaste: pasteClipboard,
+      onCut: cutSelection,
       onUndo: undo,
       onRedo: redo,
     },

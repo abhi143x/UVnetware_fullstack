@@ -177,7 +177,7 @@ export default function Navbar() {
         <div className="shrink-0">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="text-3xl font-black bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
-              UV<span className="text-white">netware</span>
+              UV<span className="text-white">  Netware</span>
             </div>
           </Link>
         </div>

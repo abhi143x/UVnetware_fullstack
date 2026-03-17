@@ -104,7 +104,7 @@ export default function Home() {
               Features
             </h2>
             <p className="text-xl text-white-300  leading-relaxed">
-              Uvnetware enhances the seating visualization experience with
+              Uv Netware enhances the seating visualization experience with
               powerful and intelligent tools.
             </p>
           </div>
