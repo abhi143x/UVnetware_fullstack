@@ -3,10 +3,11 @@ import EditorCanvas from "./EditorCanvas";
 import Toolbar from "./Toolbar";
 import UndoRedoControls from "./history/UndoRedoControls";
 import PropertiesPanel from "./PropertiesPanel";
+import ArcToolPanel from "./ArcToolPanel";
 import TemplatesPanel from "./TemplatesPanel";
 import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_SELECT } from "./constants/tools";
+import { TOOL_ARC, TOOL_SELECT } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
 
 function Editor() {
@@ -33,6 +34,7 @@ function Editor() {
   const hasSeatSelection = selectedSeatIds.length > 0;
   const hasShapeSelection = selectedShapeIds.length > 0;
   const showProperties =
+    activeTool === TOOL_ARC ||
     (hasSeatSelection && activeTool === TOOL_SELECT) ||
     (hasTextSelection && activeTool === TOOL_TEXT) ||
     (hasShapeSelection && activeTool === TOOL_SELECT);
@@ -270,11 +272,17 @@ function Editor() {
         {/* Crisp inspector panel overlay */}
         {showProperties && (
           <div className="absolute bottom-3 right-3 top-18 z-20 overflow-hidden rounded-xl border border-white/12 bg-[#0b1118]/96 shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur-md">
-            <div className="flex flex-col h-full">
-              <SelectedSeatSpacingControl />
-              <div className="flex-1 min-h-0">
-                <PropertiesPanel />
-              </div>
+            <div className="flex h-full flex-col">
+              {activeTool === TOOL_ARC ? (
+                <ArcToolPanel />
+              ) : (
+                <>
+                  <SelectedSeatSpacingControl />
+                  <div className="flex-1 min-h-0">
+                    <PropertiesPanel />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

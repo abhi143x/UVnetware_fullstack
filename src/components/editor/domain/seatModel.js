@@ -11,6 +11,14 @@
  * @property {"row"|"arc"|null} [groupType]
  * @property {string|null} [rowId]
  * @property {string|null} [arcId]
+ * @property {number|null} [arcCenterX]
+ * @property {number|null} [arcCenterY]
+ * @property {number|null} [arcRadius]
+ * @property {number|null} [arcAngle]
+ * @property {number|null} [arcRotation]
+ * @property {number|null} [arcSeatCount]
+ * @property {number|null} [arcSeatIndex]
+ * @property {number|null} [arcSeatSpacing]
  * @property {string|null} [category]
  * @property {number} [radius]
  * @property {number} [size]
@@ -32,6 +40,14 @@ export const SEAT_MODEL_FIELDS = Object.freeze([
     "groupType",
     "rowId",
     "arcId",
+    "arcCenterX",
+    "arcCenterY",
+    "arcRadius",
+    "arcAngle",
+    "arcRotation",
+    "arcSeatCount",
+    "arcSeatIndex",
+    "arcSeatSpacing",
     "category",
     "radius",
     "size",

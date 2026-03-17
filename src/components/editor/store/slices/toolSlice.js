@@ -10,6 +10,7 @@ export function createToolSlice(set) {
     textPrompt: null,
     textDraft: "",
     selectedShapeType: "rectangle",
+    arcGeneratorCenter: { x: 0, y: 0 },
 
     // Actions
     setActiveTool: (tool) =>
@@ -26,6 +27,33 @@ export function createToolSlice(set) {
           return { selectedShapeType: shapeType };
         }
         return state;
+      }),
+
+    setArcGeneratorCenter: (point) =>
+      set((state) => {
+        if (
+          !point ||
+          !Number.isFinite(point.x) ||
+          !Number.isFinite(point.y)
+        ) {
+          return state;
+        }
+
+        const currentPoint = state.arcGeneratorCenter;
+        if (
+          currentPoint &&
+          currentPoint.x === point.x &&
+          currentPoint.y === point.y
+        ) {
+          return state;
+        }
+
+        return {
+          arcGeneratorCenter: {
+            x: point.x,
+            y: point.y,
+          },
+        };
       }),
   };
 }

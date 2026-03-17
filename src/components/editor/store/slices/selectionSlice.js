@@ -267,12 +267,20 @@ export function createSelectionSlice(set, get, { trackedSet }) {
             s,
             pastedGroupIdMap,
           );
+          const nextArcCenterX = Number.isFinite(s.arcCenterX)
+            ? s.arcCenterX + offset
+            : s.arcCenterX;
+          const nextArcCenterY = Number.isFinite(s.arcCenterY)
+            ? s.arcCenterY + offset
+            : s.arcCenterY;
           return {
             ...s,
             ...groupMetadata,
             id: newId,
             x: clipboard.cx + s.x + offset,
             y: clipboard.cy + s.y + offset,
+            arcCenterX: nextArcCenterX,
+            arcCenterY: nextArcCenterY,
             number: newNumber,
             label: generateSeatLabel(row, newNumber),
           };

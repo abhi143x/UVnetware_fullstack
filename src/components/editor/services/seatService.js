@@ -84,6 +84,20 @@ export function generateSeat(point, options = {}) {
         groupType: groupOptions.groupType,
         rowId: groupOptions.rowId,
         arcId: groupOptions.arcId,
+        arcCenterX: Number.isFinite(options.arcCenterX) ? options.arcCenterX : null,
+        arcCenterY: Number.isFinite(options.arcCenterY) ? options.arcCenterY : null,
+        arcRadius: Number.isFinite(options.arcRadius) ? options.arcRadius : null,
+        arcAngle: Number.isFinite(options.arcAngle) ? options.arcAngle : null,
+        arcRotation:
+            Number.isFinite(options.arcRotation) ? options.arcRotation : null,
+        arcSeatCount:
+            Number.isFinite(options.arcSeatCount) ? options.arcSeatCount : null,
+        arcSeatIndex:
+            Number.isFinite(options.arcSeatIndex) ? options.arcSeatIndex : null,
+        arcSeatSpacing:
+            Number.isFinite(options.arcSeatSpacing)
+                ? options.arcSeatSpacing
+                : null,
         category: options.category || null,
         status: options.status || "available", // available, reserved, sold, locked
         price: options.price || null,
