@@ -62,11 +62,44 @@ export function useToolHandler(storeActions) {
     [toolManager],
   );
 
+  const handleContextMenu = useCallback(
+    (event, worldPoint, context) => {
+      const { handled, session } = toolManager.handleContextMenu(
+        event,
+        worldPoint,
+        context,
+        toolSession,
+      );
+      if (handled) {
+        setToolSession(session ?? null);
+      }
+      return handled;
+    },
+    [toolManager, toolSession],
+  );
+
+  const handleKeyDown = useCallback(
+    (event, context) => {
+      const { handled, session } = toolManager.handleKeyDown(
+        event,
+        context,
+        toolSession,
+      );
+      if (handled) {
+        setToolSession(session ?? null);
+      }
+      return handled;
+    },
+    [toolManager, toolSession],
+  );
+
   return {
     toolSession,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleClick,
+    handleContextMenu,
+    handleKeyDown,
   };
 }

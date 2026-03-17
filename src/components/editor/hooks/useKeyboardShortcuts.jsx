@@ -37,9 +37,15 @@ export function useKeyboardShortcuts(
         event.preventDefault();
         onCut?.();
       } else if (event.key === "Delete" || event.key === "Backspace") {
-        onDelete?.();
+        const handled = onDelete?.(event);
+        if (handled) {
+          event.preventDefault();
+        }
       } else if (event.key === "Escape") {
-        onEscape?.();
+        const handled = onEscape?.(event);
+        if (handled) {
+          event.preventDefault();
+        }
       }
     };
 

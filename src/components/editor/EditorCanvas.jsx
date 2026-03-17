@@ -193,6 +193,8 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseMove,
     handleMouseUp,
     handleClick,
+    handleContextMenu,
+    handleKeyDown,
   } = useToolHandler(storeActions);
   const { renderedShapes, renderedSeats, renderedTexts } = useRenderedElements(
     seats,
@@ -211,19 +213,6 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const { marqueeRect, rowPreviewPoints, arcPreviewPoints, polygonPreview } =
     usePreviewElements(toolSession, activeTool);
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts(
-    deleteSelection,
-    () => {}, // escape handler
-    {
-      onCopy: copySelection,
-      onPaste: pasteClipboard,
-      onCut: cutSelection,
-      onUndo: undo,
-      onRedo: redo,
-    },
-  );
-
   // Context for tool handlers
   const context = {
     activeTool,
@@ -238,6 +227,29 @@ function EditorCanvas({ centerOnSeatsRef }) {
     textsById: new Map(texts.map((text) => [text.id, text])),
     shapesById: new Map(shapes.map((shape) => [shape.id, shape])),
   };
+
+  const handleToolKeyDown = useCallback(
+    (event) => handleKeyDown(event, context),
+    [handleKeyDown, context],
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    (event) => {
+      const handledByTool = handleToolKeyDown(event);
+      if (handledByTool) return true;
+      deleteSelection();
+      return true;
+    },
+    (event) => handleToolKeyDown(event),
+    {
+      onCopy: copySelection,
+      onPaste: pasteClipboard,
+      onCut: cutSelection,
+      onUndo: undo,
+      onRedo: redo,
+    },
+  );
 
   const {
     handleMouseDown: handleStageMouseDown,
@@ -290,7 +302,15 @@ function EditorCanvas({ centerOnSeatsRef }) {
         if (e.target.closest("[data-type='text']")) return;
         handleStageClick(e);
       }}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(event) => {
+        const worldPoint = getWorldPointFromStage(event.clientX, event.clientY);
+        const handledByTool = worldPoint
+          ? handleContextMenu(event, worldPoint, context)
+          : false;
+        if (!handledByTool) {
+          event.preventDefault();
+        }
+      }}
     >
       <CanvasStage
         viewport={viewport}

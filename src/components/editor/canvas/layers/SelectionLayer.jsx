@@ -19,6 +19,7 @@ const SelectionLayer = React.memo(function SelectionLayer({
   const currentRowLetter = getRowLetter(nextRowIndex);
   const polygonPoints = polygonPreview?.points || [];
   const previewPoint = polygonPreview?.previewPoint || null;
+  const isPolygonClosing = !!polygonPreview?.isClosing;
   const polygonPath = [
     ...polygonPoints,
     ...(previewPoint ? [previewPoint] : []),
@@ -133,8 +134,18 @@ const SelectionLayer = React.memo(function SelectionLayer({
               cx={point.x}
               cy={point.y}
               r={index === 0 ? 5 : 4}
-              fill={index === 0 ? "#f6fbff" : "#a7cbff"}
-              stroke="rgba(49, 88, 129, 0.9)"
+              fill={
+                index === 0
+                  ? isPolygonClosing
+                    ? "#ffd98f"
+                    : "#f6fbff"
+                  : "#a7cbff"
+              }
+              stroke={
+                index === 0 && isPolygonClosing
+                  ? "rgba(153, 93, 5, 0.95)"
+                  : "rgba(49, 88, 129, 0.9)"
+              }
               strokeWidth={1.5}
             />
           ))}
