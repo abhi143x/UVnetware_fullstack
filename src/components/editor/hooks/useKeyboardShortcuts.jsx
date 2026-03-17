@@ -3,7 +3,7 @@ import { useEffect } from "react";
 export function useKeyboardShortcuts(
   onDelete,
   onEscape,
-  { onCopy, onPaste, onUndo, onRedo } = {},
+  { onCopy, onPaste, onCut, onUndo, onRedo } = {},
 ) {
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -33,6 +33,9 @@ export function useKeyboardShortcuts(
       } else if (mod && key === "v") {
         event.preventDefault();
         onPaste?.();
+      } else if (mod && key === "x") {
+        event.preventDefault();
+        onCut?.();
       } else if (event.key === "Delete" || event.key === "Backspace") {
         onDelete?.();
       } else if (event.key === "Escape") {
@@ -42,5 +45,5 @@ export function useKeyboardShortcuts(
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onDelete, onEscape, onCopy, onPaste, onUndo, onRedo]);
+  }, [onDelete, onEscape, onCopy, onPaste, onCut, onUndo, onRedo]);
 }

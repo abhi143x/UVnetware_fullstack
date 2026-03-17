@@ -321,5 +321,9 @@ export function createSelectionSlice(set, get, { trackedSet }) {
           activeTool: TOOL_SELECT,
         };
       }),
+    cutSelection: () => {
+      get().copySelection();
+      get().deleteSelection();
+    },
   };
 }

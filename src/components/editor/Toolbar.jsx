@@ -10,15 +10,79 @@ import {
 } from "./constants/tools";
 import { useMemo, useState } from "react";
 
+const SelectIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 3H7M11 3H13M17 3H19C20.1 3 21 3.9 21 5V7M21 11V13M21 17V19C21 20.1 20.1 21 19 21H17M13 21H11M7 21H5C3.9 21 3 20.1 3 19V17M3 13V11M3 7V5C3 3.9 3.9 3 5 3Z" strokeDasharray="1.5 1.5"/>
+    <path d="M12 12l5 10 2-5 5-2-12-3z" fill="currentColor" stroke="none"/>
+  </svg>
+);
+
+const SeatIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 4a2 2 0 012-2h4a2 2 0 012 2v2a2 2 0 01-2 2h-4a2 2 0 01-2-2V4z" />
+    <path d="M11 8v2m2-2v2" />
+    <path d="M18 21c0-4-1-10-3-11H9c-2 1-3 7-3 11c0 2 1 3 3 3h6c2 0 3-1 3-3z" />
+    <path d="M9 10v13m6-13v13" />
+    <path d="M9 16h6" />
+  </svg>
+);
+
+const AlignIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="6" x2="20" y2="6" strokeWidth="3"/>
+    <line x1="8" y1="12" x2="16" y2="12" strokeWidth="3"/>
+    <line x1="4" y1="18" x2="20" y2="18" strokeWidth="3"/>
+  </svg>
+);
+
+const ArcIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 20c0-8.8 7.2-16 16-16" />
+    <rect x="2" y="18" width="4" height="4" fill="currentColor" />
+    <rect x="18" y="2" width="4" height="4" fill="currentColor" />
+    <rect x="8" y="8" width="4" height="4" fill="currentColor" />
+  </svg>
+);
+
+const RotateIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 11-9-9c2.5 0 4.8 1 6.5 2.8" />
+    <polyline points="16 1 19 4 16 7" />
+  </svg>
+);
+
+const TextIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 5h14" />
+    <path d="M12 5v14" />
+    <path d="M9 19h6" />
+  </svg>
+);
+
+const ShapeToolIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 4L3 14h12L9 4z" />
+    <rect x="12" y="6" width="8" height="8" />
+    <circle cx="12" cy="15" r="5" />
+  </svg>
+);
+
+const EraserToolIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L21 6C22 7 22 9 21 10L11 20" />
+    <path d="M17 17l-6-6" />
+  </svg>
+);
+
 const TOOLS = [
-  { id: TOOL_SELECT, label: "Select", icon: "🎯" },
-  { id: TOOL_SEAT, label: "Seat", icon: "💺" },
+  { id: TOOL_SELECT, label: "Select", icon: <SelectIcon /> },
+  { id: TOOL_SEAT, label: "Seat", icon: <SeatIcon /> },
   { id: TOOL_ROW, label: "Row", icon: "📏" },
-  { id: TOOL_ARC, label: "Arc", icon: "➰" },
-  { id: TOOL_ROTATE, label: "Rotate", icon: "🔄" },
-  { id: TOOL_TEXT, label: "Text", icon: "T" },
-  { id: TOOL_SHAPE, label: "Shape", icon: "◼" },
-  { id: TOOL_ERASER, label: "Eraser", icon: "🧹" },
+  { id: TOOL_ARC, label: "Arc", icon: <ArcIcon /> },
+  { id: TOOL_ROTATE, label: "Rotate", icon: <RotateIcon /> },
+  { id: TOOL_TEXT, label: "Text", icon: <TextIcon /> },
+  { id: TOOL_SHAPE, label: "Shape", icon: <ShapeToolIcon /> },
+  { id: TOOL_ERASER, label: "Eraser", icon: <EraserToolIcon /> },
 ];
 
 const SHAPE_OPTIONS = [
@@ -146,7 +210,6 @@ function Toolbar({
         })}
       </div>
 
-      {/* Align Button */}
       <button
         type="button"
         onClick={onAlign}
@@ -154,7 +217,9 @@ function Toolbar({
         aria-label="Align Selection"
         title="Align selected seats to grid"
       >
-        <span className="text-sm leading-none">📐</span>
+        <span className="text-sm leading-none">
+          <AlignIcon />
+        </span>
         {!compact && <span className="text-[10px] font-medium">Align</span>}
       </button>
     </div>

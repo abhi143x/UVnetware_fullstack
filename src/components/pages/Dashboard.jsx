@@ -114,14 +114,14 @@ function TemplatePreview({ templateId }) {
 /* ── Per-template accent styling ──────────────────────────────────────────── */
 
 const ACCENTS = {
-  "movie-theatre": { gradient: "from-violet-600/20 to-fuchsia-600/10", border: "border-violet-500/20", icon: "🎬" },
-  "small-theater": { gradient: "from-blue-600/20 to-cyan-600/10", border: "border-blue-500/20", icon: "🎦" },
-  "bus": { gradient: "from-yellow-600/20 to-orange-600/10", border: "border-yellow-500/20", icon: "🚌" },
-  "train": { gradient: "from-sky-600/20 to-blue-600/10", border: "border-sky-500/20", icon: "🚆" },
-  "medium-hall": { gradient: "from-indigo-600/20 to-purple-600/10", border: "border-indigo-500/20", icon: "🎭" },
-  "large-arena": { gradient: "from-emerald-600/20 to-teal-600/10", border: "border-emerald-500/20", icon: "🏟️" },
-  "conference-room": { gradient: "from-amber-600/20 to-orange-600/10", border: "border-amber-500/20", icon: "🎤" },
-  "amphitheater": { gradient: "from-rose-600/20 to-pink-600/10", border: "border-rose-500/20", icon: "🏛️" },
+  "movie-theatre": { gradient: "from-violet-600/20 to-fuchsia-600/10", border: "border-violet-500/20" },
+  "small-theater": { gradient: "from-blue-600/20 to-cyan-600/10", border: "border-blue-500/20" },
+  "bus": { gradient: "from-yellow-600/20 to-orange-600/10", border: "border-yellow-500/20" },
+  "train": { gradient: "from-sky-600/20 to-blue-600/10", border: "border-sky-500/20" },
+  "medium-hall": { gradient: "from-indigo-600/20 to-purple-600/10", border: "border-indigo-500/20" },
+  "large-arena": { gradient: "from-emerald-600/20 to-teal-600/10", border: "border-emerald-500/20" },
+  "conference-room": { gradient: "from-amber-600/20 to-orange-600/10", border: "border-amber-500/20" },
+  "amphitheater": { gradient: "from-rose-600/20 to-pink-600/10", border: "border-rose-500/20" },
 };
 
 /* ── Dashboard ────────────────────────────────────────────────────────────── */
@@ -178,8 +178,7 @@ export default function Dashboard() {
 
                 {/* Info */}
                 <div className="px-4 pb-4 pt-1.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-base">{accent.icon}</span>
+                  <div className="mb-1">
                     <h3 className="text-sm font-semibold text-[#e0e8f0] group-hover:text-white transition-colors truncate">
                       {tpl.name}
                     </h3>
