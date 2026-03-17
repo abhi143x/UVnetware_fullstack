@@ -36,6 +36,17 @@ export function useRenderedElements(
     () => new Set(selectedShapeIds),
     [selectedShapeIds],
   );
+  const isEraseModeActive = activeTool === TOOL_ERASER;
+
+  const erasePreviewSeatIdSet = useMemo(() => {
+    if (!isEraseModeActive || !hoveredSeatId) return null;
+
+    if (selectedSeatIdSet.size > 0 && selectedSeatIdSet.has(hoveredSeatId)) {
+      return selectedSeatIdSet;
+    }
+
+    return new Set([hoveredSeatId]);
+  }, [isEraseModeActive, hoveredSeatId, selectedSeatIdSet]);
 
   // Map category id -> color for quick lookup
   const categoryColorMap = useMemo(() => {
@@ -51,8 +62,7 @@ export function useRenderedElements(
   const renderedSeats = useMemo(() => {
     return seats.map((seat) => {
       const isSelected = selectedSeatIdSet.has(seat.id);
-      const isEraseHovered =
-        activeTool === TOOL_ERASER && seat.id === hoveredSeatId;
+      const isEraseHovered = Boolean(erasePreviewSeatIdSet?.has(seat.id));
       const categoryColor = seat.category
         ? categoryColorMap.get(seat.category) || null
         : null;
@@ -67,13 +77,13 @@ export function useRenderedElements(
         />
       );
     });
-  }, [seats, selectedSeatIdSet, activeTool, hoveredSeatId, categoryColorMap]);
+  }, [seats, selectedSeatIdSet, erasePreviewSeatIdSet, categoryColorMap]);
 
   const renderedTexts = useMemo(() => {
     return texts.map((textItem) => {
       const isSelected = selectedTextIdSet.has(textItem.id);
       const isEraseHovered =
-        activeTool === TOOL_ERASER && textItem.id === hoveredTextId;
+        isEraseModeActive && textItem.id === hoveredTextId;
 
       return (
         <TextComponent
@@ -84,13 +94,13 @@ export function useRenderedElements(
         />
       );
     });
-  }, [texts, selectedTextIdSet, activeTool, hoveredTextId]);
+  }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId]);
 
   const renderedShapes = useMemo(() => {
     return shapes.map((shape) => {
       const isSelected = selectedShapeIdSet.has(shape.id);
       const isEraseHovered =
-        activeTool === TOOL_ERASER && shape.id === hoveredShapeId;
+        isEraseModeActive && shape.id === hoveredShapeId;
 
       return (
         <ShapeComponent
@@ -101,7 +111,7 @@ export function useRenderedElements(
         />
       );
     });
-  }, [shapes, selectedShapeIdSet, activeTool, hoveredShapeId]);
+  }, [shapes, selectedShapeIdSet, isEraseModeActive, hoveredShapeId]);
 
   return {
     renderedShapes,
