@@ -11,6 +11,15 @@ import { TOOL_TEXT } from "./constants/tools";
 import { SeatTypeSelector } from "./components/SeatTypeSelector";
 import { ELEMENT_TYPES } from "./domain/elementTypes";
 
+function parseStoredJSON(key, fallback = null) {
+  try {
+    const rawValue = localStorage.getItem(key);
+    return rawValue ? JSON.parse(rawValue) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function Editor() {
   const [saveStatus, setSaveStatus] = useState("idle"); // 'idle' | 'saved'
   const [showTemplates, setShowTemplates] = useState(false);
@@ -63,12 +72,19 @@ function Editor() {
     selectedArcGroupSeats.length > 0;
   const showProperties =
     (hasSeatSelection && activeTool === TOOL_SELECT && !isCompleteArcSelection) ||
-    (hasTextSelection && activeTool === TOOL_TEXT) ||
+    (hasTextSelection &&
+      (activeTool === TOOL_TEXT || activeTool === TOOL_SELECT)) ||
     (hasShapeSelection && activeTool === TOOL_SELECT);
   const isOverCapacity = seatCount > 500;
+  const currentUser = parseStoredJSON("uvnet_auth_user");
+  const canSaveLayouts = Boolean(currentUser?.email);
 
   const [currentLayoutId, setCurrentLayoutId] = useState(null);
   const [currentLayoutName, setCurrentLayoutName] = useState("");
+  const layoutMetaRef = useRef({
+    currentLayoutId: null,
+    currentLayoutName: "",
+  });
 
   const [showRestoreMsg, setShowRestoreMsg] = useState(false);
 
@@ -97,40 +113,36 @@ function Editor() {
 
   useEffect(() => {
     // 1️⃣ FIRST: check draft (refresh recovery)
-    const draft = localStorage.getItem("uvnet_editor_draft");
+    const draft = parseStoredJSON("uvnet_editor_draft");
 
     if (draft) {
-      const parsed = JSON.parse(draft);
-
       useEditorStore.setState({
-        seats: parsed.seats || [],
-        texts: parsed.texts || [],
-        shapes: parsed.shapes || [],
+        seats: draft.seats || [],
+        texts: draft.texts || [],
+        shapes: draft.shapes || [],
       });
 
       queueMicrotask(() => {
-        setCurrentLayoutId(parsed.currentLayoutId || null);
-        setCurrentLayoutName(parsed.currentLayoutName || "");
+        setCurrentLayoutId(draft.currentLayoutId || null);
+        setCurrentLayoutName(draft.currentLayoutName || "");
         setShowRestoreMsg(true);
       });
 
       return;
     }
     // 2️⃣ Otherwise: load from MyLayouts
-    const saved = localStorage.getItem("uvnet_load_layout");
+    const saved = parseStoredJSON("uvnet_load_layout");
 
     if (saved) {
-      const layout = JSON.parse(saved);
-
       useEditorStore.setState({
-        seats: layout.seats || [],
-        texts: layout.texts || [],
-        shapes: layout.shapes || [],
+        seats: saved.seats || [],
+        texts: saved.texts || [],
+        shapes: saved.shapes || [],
       });
 
       queueMicrotask(() => {
-        setCurrentLayoutId(layout.id);
-        setCurrentLayoutName(layout.name);
+        setCurrentLayoutId(saved.id || null);
+        setCurrentLayoutName(saved.name || "");
       });
 
       localStorage.removeItem("uvnet_load_layout");
@@ -148,31 +160,37 @@ function Editor() {
   }, [showRestoreMsg]);
 
   useEffect(() => {
+    layoutMetaRef.current = {
+      currentLayoutId,
+      currentLayoutName,
+    };
+  }, [currentLayoutId, currentLayoutName]);
+
+  useEffect(() => {
     const unsubscribe = useEditorStore.subscribe((state) => {
       const draft = {
         seats: state.seats,
         texts: state.texts,
         shapes: state.shapes,
-        currentLayoutId,
-        currentLayoutName,
+        currentLayoutId: layoutMetaRef.current.currentLayoutId,
+        currentLayoutName: layoutMetaRef.current.currentLayoutName,
       };
 
       localStorage.setItem("uvnet_editor_draft", JSON.stringify(draft));
     });
 
     return () => unsubscribe();
-  }, [currentLayoutId, currentLayoutName]);
+  }, []);
 
   function handleSave() {
-    const user = JSON.parse(localStorage.getItem("uvnet_auth_user"));
+    const user = parseStoredJSON("uvnet_auth_user");
 
     if (!user) {
       alert("Please login first to save layouts.");
       return;
     }
 
-    const layouts =
-      JSON.parse(localStorage.getItem("uvnet_saved_layouts")) || [];
+    const layouts = parseStoredJSON("uvnet_saved_layouts", []);
 
     const seats = useEditorStore.getState().seats;
     const texts = useEditorStore.getState().texts;
@@ -215,7 +233,7 @@ function Editor() {
       if (!layoutName) return;
 
       const newLayout = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         name: layoutName,
         user: user.email,
         seats,
@@ -308,16 +326,18 @@ function Editor() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSave}
-                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${saveStatus === "saved"
-                    ? "border-green-500/50 bg-green-600/20 text-green-300"
-                    : "border-[#587cb3]/35 bg-[#587cb3]/15 text-[#c9d6ea] hover:bg-[#587cb3]/25"
-                  }`}
-              >
-                {saveStatus === "saved" ? "Saved" : "Save Layout"}
-              </button>
+              {canSaveLayouts && (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${saveStatus === "saved"
+                      ? "border-green-500/50 bg-green-600/20 text-green-300"
+                      : "border-[#587cb3]/35 bg-[#587cb3]/15 text-[#c9d6ea] hover:bg-[#587cb3]/25"
+                    }`}
+                >
+                  {saveStatus === "saved" ? "Saved" : "Save Layout"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleClear}

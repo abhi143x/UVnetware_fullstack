@@ -783,8 +783,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     updateSelectedSeatsSpacing: (newSpacing) =>
       trackedSet((state) => {
+        const selectedSeatIdSet = new Set(state.selectedSeatIds);
         const selectedSeats = state.seats.filter((seat) =>
-          state.selectedSeatIds.includes(seat.id),
+          selectedSeatIdSet.has(seat.id),
         );
 
         if (selectedSeats.length < 2) return state;
@@ -808,13 +809,19 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         // Find all seats that come after the rightmost selected seat
         const seatsToMove = state.seats.filter(
           (seat) =>
-            !state.selectedSeatIds.includes(seat.id) &&
+            !selectedSeatIdSet.has(seat.id) &&
             seat.x > currentRightmostPosition,
+        );
+        const seatsToMoveSet = new Set(seatsToMove.map((seat) => seat.id));
+        const nonSelectedSeats = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x <= currentRightmostPosition,
         );
 
         const updatedSeats = state.seats.map((seat) => {
           // Handle selected seats
-          if (state.selectedSeatIds.includes(seat.id)) {
+          if (selectedSeatIdSet.has(seat.id)) {
             // Find the index of this seat in the sorted selected seats
             const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
 
@@ -822,12 +829,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
             let targetX = leftmostX + seatIndex * newSpacing;
 
             // Check for overlaps with non-selected seats (only those before the selected area)
-            const seatRadius = 15; // Approximate seat radius
-            const nonSelectedSeats = state.seats.filter(
-              (s) =>
-                !state.selectedSeatIds.includes(s.id) &&
-                s.x <= currentRightmostPosition,
-            );
+            const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
 
             for (const otherSeat of nonSelectedSeats) {
               const distance = Math.abs(targetX - otherSeat.x);
@@ -851,7 +853,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           }
 
           // Handle seats that come after the selected area - move them forward
-          if (seatsToMove.find((s) => s.id === seat.id)) {
+          if (seatsToMoveSet.has(seat.id)) {
             return {
               ...seat,
               x: seat.x + positionShift,
@@ -872,8 +874,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     previewSelectedSeatsSpacing: (newSpacing) =>
       set((state) => {
+        const selectedSeatIdSet = new Set(state.selectedSeatIds);
         const selectedSeats = state.seats.filter((seat) =>
-          state.selectedSeatIds.includes(seat.id),
+          selectedSeatIdSet.has(seat.id),
         );
 
         if (selectedSeats.length < 2) return state;
@@ -883,11 +886,6 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         state.seats.forEach((seat) => {
           originalPositions[seat.id] = seat.x;
         });
-        console.log(
-          "Storing original positions for",
-          Object.keys(originalPositions).length,
-          "seats",
-        );
 
         // Sort selected seats by x position
         selectedSeats.sort((a, b) => a.x - b.x);
@@ -905,13 +903,19 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         // Find all seats that come after the rightmost selected seat
         const seatsToMove = state.seats.filter(
           (seat) =>
-            !state.selectedSeatIds.includes(seat.id) &&
+            !selectedSeatIdSet.has(seat.id) &&
             seat.x > currentRightmostPosition,
+        );
+        const seatsToMoveSet = new Set(seatsToMove.map((seat) => seat.id));
+        const nonSelectedSeats = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x <= currentRightmostPosition,
         );
 
         const updatedSeats = state.seats.map((seat) => {
           // Handle selected seats
-          if (state.selectedSeatIds.includes(seat.id)) {
+          if (selectedSeatIdSet.has(seat.id)) {
             // Find the index of this seat in the sorted selected seats
             const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
 
@@ -919,12 +923,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
             let targetX = leftmostX + seatIndex * newSpacing;
 
             // Check for overlaps with non-selected seats (only those before the selected area)
-            const seatRadius = 15; // Approximate seat radius
-            const nonSelectedSeats = state.seats.filter(
-              (s) =>
-                !state.selectedSeatIds.includes(s.id) &&
-                s.x <= currentRightmostPosition,
-            );
+            const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
 
             for (const otherSeat of nonSelectedSeats) {
               const distance = Math.abs(targetX - otherSeat.x);
@@ -948,7 +947,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           }
 
           // Handle seats that come after the selected area - move them forward in preview
-          if (seatsToMove.find((s) => s.id === seat.id)) {
+          if (seatsToMoveSet.has(seat.id)) {
             return {
               ...seat,
               x: seat.x + positionShift,
@@ -967,12 +966,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     clearSpacingPreview: () =>
       trackedSet((state) => {
-        console.log(
-          "clearSpacingPreview called, spacingPreview:",
-          state.spacingPreview,
-        );
         if (!state.spacingPreview) {
-          console.log("No spacingPreview data found");
           return state;
         }
 
@@ -980,21 +974,14 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const restoredSeats = state.seats.map((seat) => {
           const originalX = state.spacingPreview[seat.id];
           if (originalX !== undefined) {
-            console.log(
-              `Restoring seat ${seat.id} from ${seat.x} to ${originalX}`,
-            );
             return {
               ...seat,
               x: originalX, // Restore to original X position
             };
           }
-          console.log(
-            `Seat ${seat.id} not in preview data, keeping current position`,
-          );
           return seat;
         });
 
-        console.log("Restoration complete, clearing spacingPreview");
         return {
           seats: restoredSeats,
           spacingPreview: null,
