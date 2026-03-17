@@ -22,7 +22,7 @@ export function usePreviewElements(toolSession, _activeTool) {
   }, [toolSession]);
 
   const arcPreviewPoints = useMemo(() => {
-    if (toolSession?.type === "arc_drawing") {
+    if (toolSession?.type === "arc_preview") {
       return toolSession.previewPoints || [];
     }
     return [];

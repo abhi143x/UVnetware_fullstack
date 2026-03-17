@@ -153,7 +153,7 @@ function ArcToolPanel() {
             <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-white/35">
               <span>Placement</span>
               <span className="tabular-nums">
-                {Math.round(arcGeneratorCenter.x)}, {Math.round(arcGeneratorCenter.y)}
+                X {Math.round(arcGeneratorCenter.x)} / Y auto
               </span>
             </div>
           </div>
@@ -169,9 +169,10 @@ function ArcToolPanel() {
         </div>
 
         <div className="rounded-md border border-white/8 bg-[#0c1017] px-3 py-2 text-[11px] leading-relaxed text-white/45">
-          Arcs are placed at the visible canvas center. Use Select to move them,
-          then adjust radius or angle from the inspector after selecting the full
-          arc.
+          Arcs use the visible canvas center for X placement, then stack below
+          the current layout automatically without overlapping existing seats.
+          Use Select to move them or edit angle and radius after selecting the
+          full arc.
         </div>
       </div>
 

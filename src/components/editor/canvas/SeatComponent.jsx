@@ -186,6 +186,9 @@ const SeatSVG = React.memo(
 
     return (
       <g
+        data-seat-id={seat.id}
+        data-seat-group-id={seat.groupId || ""}
+        data-seat-group-type={seat.groupType || ""}
         onClick={(e) => onSeatClick?.(e, seat.id)}
         onDoubleClick={(e) => onSeatDoubleClick?.(e, seat.id)}
         onMouseDown={(e) => onSeatMouseDown?.(e, seat)}

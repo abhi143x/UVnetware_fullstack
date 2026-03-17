@@ -1,5 +1,8 @@
 import { generateSeatLabel } from "../utils/seatNumbering";
-import { createSeatGroupMetadata } from "./seatService";
+import {
+    createSeatGroupMetadata,
+    DEFAULT_SEAT_RADIUS,
+} from "./seatService";
 import { ELEMENT_TYPES } from "../domain/elementTypes";
 import { RADIANS_PER_DEGREE } from "../utils/mathUtils";
 
@@ -11,11 +14,20 @@ export const DEFAULT_ARC_TOOL_SETTINGS = Object.freeze({
 });
 
 export const DEFAULT_ARC_ROTATION = -Math.PI / 2;
+export const ARC_SEAT_COUNT_STEP = 1;
+export const ARC_ANGLE_STEP = 1;
+export const ARC_RADIUS_STEP = 1;
+export const ARC_SPACING_STEP = 1;
+
+const DEFAULT_ARC_RADIUS = 120;
 const MIN_ARC_SEAT_COUNT = 1;
-const MIN_ARC_ANGLE = 15;
-const MAX_ARC_ANGLE = 330;
-const MIN_ARC_SPACING = 20;
-const MIN_ARC_RADIUS = 24;
+const MAX_ARC_SEAT_COUNT = 80;
+const MIN_ARC_ANGLE = 1;
+const MAX_ARC_ANGLE = 360;
+const MIN_ARC_SPACING = 0;
+const MAX_ARC_SPACING = 240;
+const MIN_ARC_RADIUS = 10;
+const MAX_ARC_RADIUS = 1200;
 
 function normalizePositiveNumber(value, fallback) {
     const parsed = Number(value);
@@ -24,9 +36,14 @@ function normalizePositiveNumber(value, fallback) {
 }
 
 export function normalizeArcSeatCount(value) {
-    return Math.max(
-        MIN_ARC_SEAT_COUNT,
-        Math.round(normalizePositiveNumber(value, DEFAULT_ARC_TOOL_SETTINGS.seatCount)),
+    return Math.min(
+        MAX_ARC_SEAT_COUNT,
+        Math.max(
+            MIN_ARC_SEAT_COUNT,
+            Math.round(
+                normalizePositiveNumber(value, DEFAULT_ARC_TOOL_SETTINGS.seatCount),
+            ),
+        ),
     );
 }
 
@@ -36,49 +53,68 @@ export function normalizeArcAngle(value) {
 }
 
 export function normalizeArcSpacing(value) {
-    return Math.max(
-        MIN_ARC_SPACING,
-        normalizePositiveNumber(value, DEFAULT_ARC_TOOL_SETTINGS.seatSpacing),
+    return Math.min(
+        MAX_ARC_SPACING,
+        Math.max(
+            MIN_ARC_SPACING,
+            normalizePositiveNumber(value, DEFAULT_ARC_TOOL_SETTINGS.seatSpacing),
+        ),
     );
 }
 
-export function calculateArcRadius(seatCount, arcAngle, seatSpacing, providedRadius) {
-    const explicitRadius = Number(providedRadius);
-    if (Number.isFinite(explicitRadius) && explicitRadius > 0) {
-        return Math.max(MIN_ARC_RADIUS, explicitRadius);
-    }
+export function normalizeArcRadius(value) {
+    const parsed = normalizePositiveNumber(value, DEFAULT_ARC_RADIUS);
+    return Math.max(MIN_ARC_RADIUS, Math.min(MAX_ARC_RADIUS, parsed));
+}
 
+export function calculateArcStepRadians(seatCount, arcAngle) {
     const normalizedSeatCount = normalizeArcSeatCount(seatCount);
-    const normalizedAngle = normalizeArcAngle(arcAngle);
-    const normalizedSpacing = normalizeArcSpacing(seatSpacing);
+    if (normalizedSeatCount <= 1) return 0;
 
+    const normalizedAngle = normalizeArcAngle(arcAngle);
+    return (normalizedAngle * RADIANS_PER_DEGREE) / (normalizedSeatCount - 1);
+}
+
+export function calculateArcSeatSpacing(seatCount, arcAngle, radius) {
+    const normalizedSeatCount = normalizeArcSeatCount(seatCount);
+    if (normalizedSeatCount <= 1) return 0;
+
+    const stepRadians = calculateArcStepRadians(seatCount, arcAngle);
+    const normalizedRadius = normalizeArcRadius(radius);
+
+    return 2 * normalizedRadius * Math.sin(Math.max(stepRadians / 2, Number.EPSILON));
+}
+
+export function calculateArcAngleFromSpacing(seatCount, radius, seatSpacing) {
+    const normalizedSeatCount = normalizeArcSeatCount(seatCount);
     if (normalizedSeatCount <= 1) {
-        return Math.max(MIN_ARC_RADIUS, normalizedSpacing);
+        return normalizeArcAngle(DEFAULT_ARC_TOOL_SETTINGS.arcAngle);
     }
 
-    const sweepRadians = normalizedAngle * RADIANS_PER_DEGREE;
-    const arcLength = (normalizedSeatCount - 1) * normalizedSpacing;
-    return Math.max(
-        MIN_ARC_RADIUS,
-        arcLength / Math.max(sweepRadians, Number.EPSILON),
+    const normalizedRadius = normalizeArcRadius(radius);
+    const normalizedSpacing = normalizeArcSpacing(seatSpacing);
+    const maximumSupportedSpacing = Math.max(
+        DEFAULT_SEAT_RADIUS * 2,
+        normalizedRadius * 2 - 1,
+    );
+    const clampedSpacing = Math.min(normalizedSpacing, maximumSupportedSpacing);
+    const stepRadians =
+        2 * Math.asin(Math.min(1, clampedSpacing / (2 * normalizedRadius)));
+
+    return normalizeArcAngle(
+        (stepRadians * (normalizedSeatCount - 1)) / RADIANS_PER_DEGREE,
     );
 }
 
 export function resolveArcLayoutConfig(config = {}) {
     const seatCount = normalizeArcSeatCount(config.seatCount);
     const arcAngle = normalizeArcAngle(config.arcAngle);
-    const seatSpacing = normalizeArcSpacing(config.seatSpacing);
-    const radius = calculateArcRadius(
-        seatCount,
-        arcAngle,
-        seatSpacing,
-        config.radius,
-    );
+    const radius = normalizeArcRadius(config.radius);
 
     return {
         seatCount,
         arcAngle,
-        seatSpacing,
+        seatSpacing: calculateArcSeatSpacing(seatCount, arcAngle, radius),
         radius,
         rotation:
             Number.isFinite(config.rotation) ? config.rotation : DEFAULT_ARC_ROTATION,
@@ -101,9 +137,14 @@ export function buildArcLayoutPoints({ centerPoint, ...config }) {
 
     const resolved = resolveArcLayoutConfig(config);
     const sweepRadians = resolved.arcAngle * RADIANS_PER_DEGREE;
-    const startAngle = resolved.rotation - sweepRadians / 2;
-    const stepAngle =
-        resolved.seatCount <= 1 ? 0 : sweepRadians / (resolved.seatCount - 1);
+    const startAngle =
+        resolved.seatCount <= 1
+            ? resolved.rotation
+            : resolved.rotation - sweepRadians / 2;
+    const stepAngle = calculateArcStepRadians(
+        resolved.seatCount,
+        resolved.arcAngle,
+    );
 
     return Array.from({ length: resolved.seatCount }, (_, index) => {
         const angle = startAngle + stepAngle * index;
@@ -144,20 +185,6 @@ export function buildArcSeatPlacements({
             arcSeatCount: resolved.seatCount,
             arcSeatIndex: index,
             arcSeatSpacing: resolved.seatSpacing,
-        },
-    }));
-}
-
-export function generateArcSeats(arcPoints, rowLetter, arcId) {
-    const groupOptions = createSeatGroupMetadata(ELEMENT_TYPES.ARC, arcId);
-
-    return arcPoints.map((point, index) => ({
-        ...point,
-        options: {
-            row: rowLetter,
-            number: index + 1,
-            label: generateSeatLabel(rowLetter, index + 1),
-            ...groupOptions,
         },
     }));
 }

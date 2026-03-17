@@ -15,8 +15,8 @@ import { useRenderedElements } from "./hooks/useRenderedElements";
 import { useToolHandler } from "./hooks/useToolHandler";
 import { useViewport } from "./hooks/useViewport";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ARC, TOOL_ERASER } from "./constants/tools";
-import { screenToWorldPoint } from "./utils/mathUtils";
+import { TOOL_ERASER } from "./constants/tools";
+import ArcFloatingEditor from "./ArcFloatingEditor";
 
 function EditorCanvas({ centerOnSeatsRef }) {
   const containerRef = useRef(null);
@@ -80,9 +80,6 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const cutSelection = useEditorStore((state) => state.cutSelection);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
-  const setArcGeneratorCenter = useEditorStore(
-    (state) => state.setArcGeneratorCenter,
-  );
 
   const storeActions = useMemo(
     () => ({
@@ -161,25 +158,6 @@ function EditorCanvas({ centerOnSeatsRef }) {
     }
   }, [centerOnSeats, centerOnSeatsRef]);
 
-  useEffect(() => {
-    if (activeTool !== TOOL_ARC) return;
-
-    const centerPoint = screenToWorldPoint(
-      {
-        x: viewport.width / 2,
-        y: viewport.height / 2,
-      },
-      camera,
-    );
-    setArcGeneratorCenter(centerPoint);
-  }, [
-    activeTool,
-    viewport.width,
-    viewport.height,
-    camera,
-    setArcGeneratorCenter,
-  ]);
-
   // Auto-center on template load (when templateVersion changes)
   const templateVersion = useEditorStore((state) => state.templateVersion);
   useEffect(() => {
@@ -214,8 +192,15 @@ function EditorCanvas({ centerOnSeatsRef }) {
     categories,
   );
   const cursor = useCursor(activeTool, false, false);
-  const { marqueeRect, rowPreviewPoints, arcPreviewPoints, polygonPreview } =
-    usePreviewElements(toolSession, activeTool);
+  const {
+    marqueeRect,
+    rowPreviewPoints,
+    arcPreviewPoints,
+    polygonPreview,
+  } = usePreviewElements(
+    toolSession,
+    activeTool,
+  );
 
   // Keyboard shortcuts
   useKeyboardShortcuts(
@@ -318,17 +303,26 @@ function EditorCanvas({ centerOnSeatsRef }) {
         : cursor === "text"
           ? "text"
           : "default");
+  const isArcEditorTarget = (target) =>
+    target instanceof Element && Boolean(target.closest("[data-arc-editor='true']"));
 
   return (
     <section
       ref={containerRef}
       className="h-full w-full bg-[#0e1319] select-none relative"
       style={{ cursor: resolvedCursor }}
-      onMouseDown={handleStageMouseDown}
+      onMouseDown={(event) => {
+        if (isArcEditorTarget(event.target)) return;
+        handleStageMouseDown(event);
+      }}
       onMouseMove={handleStageMouseMove}
-      onMouseUp={handleStageMouseUp}
+      onMouseUp={(event) => {
+        if (isArcEditorTarget(event.target)) return;
+        handleStageMouseUp(event);
+      }}
       onMouseLeave={handleContainerMouseLeave}
       onClick={(e) => {
+        if (isArcEditorTarget(e.target)) return;
         if (e.target.closest("[data-type='text']")) return;
         handleStageClick(e);
       }}
@@ -355,6 +349,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
         marqueeRect={marqueeRect}
         nextRowIndex={nextRowIndex}
       />
+      <ArcFloatingEditor camera={camera} viewport={viewport} />
       {/* Minimap in bottom-right */}
       <Minimap
         seats={seats}

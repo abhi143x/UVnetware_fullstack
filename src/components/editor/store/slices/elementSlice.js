@@ -19,6 +19,7 @@ import { getRowLetter } from "../../utils/seatNumbering";
 import {
   DEFAULT_SEAT_RADIUS,
   createId,
+  createSeatGroupMetadata,
   generateSeat,
 } from "../../services/seatService";
 import {
@@ -35,8 +36,11 @@ import { generateRowSeats } from "../../services/rowService";
 import {
   buildArcLayoutPoints,
   buildArcSeatPlacements,
-  generateArcSeats,
+  calculateArcAngleFromSpacing,
+  calculateArcSeatSpacing,
   hasArcLayoutMetadata,
+  normalizeArcRadius,
+  normalizeArcSeatCount,
   resolveArcLayoutConfig,
 } from "../../services/arcService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
@@ -52,6 +56,142 @@ const DEFAULT_CATEGORIES = [
   { id: "standard", name: "Standard", color: "#5fa7ff", price: null },
   { id: "balcony", name: "Balcony", color: "#9b59b6", price: null },
 ];
+const ARC_AUTO_PLACEMENT_VERTICAL_SPACING = 80;
+const ARC_AUTO_PLACEMENT_Y_STEP = 20;
+const ARC_AUTO_PLACEMENT_MAX_ATTEMPTS = 400;
+
+function hasArcPlacementCollision(arcPlacements, collisionIndex, maxSeatRadius) {
+  const candidateCollisionIndex = new Map();
+
+  for (const placement of arcPlacements) {
+    if (
+      isOverlappingWithCollisionIndex(
+        placement.x,
+        placement.y,
+        DEFAULT_SEAT_RADIUS,
+        collisionIndex,
+        COLLISION_INDEX_CELL_SIZE,
+        maxSeatRadius,
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      isOverlappingWithCollisionIndex(
+        placement.x,
+        placement.y,
+        DEFAULT_SEAT_RADIUS,
+        candidateCollisionIndex,
+        COLLISION_INDEX_CELL_SIZE,
+        DEFAULT_SEAT_RADIUS,
+      )
+    ) {
+      return true;
+    }
+
+    addSeatToCollisionIndex(
+      candidateCollisionIndex,
+      {
+        x: placement.x,
+        y: placement.y,
+        radius: DEFAULT_SEAT_RADIUS,
+      },
+      COLLISION_INDEX_CELL_SIZE,
+    );
+  }
+
+  return false;
+}
+
+function resolveArcPlacementCenter(existingSeats, fallbackCenter, radius) {
+  if (!fallbackCenter || !Number.isFinite(fallbackCenter.x)) {
+    return null;
+  }
+
+  const maxSeatY = existingSeats.reduce(
+    (currentMaxY, seat) => Math.max(currentMaxY, seat.y),
+    Number.NEGATIVE_INFINITY,
+  );
+
+  return {
+    x: fallbackCenter.x,
+    y: Number.isFinite(maxSeatY)
+      ? maxSeatY + ARC_AUTO_PLACEMENT_VERTICAL_SPACING + radius
+      : fallbackCenter.y,
+  };
+}
+
+function findAvailableArcPlacements(
+  existingSeats,
+  arcConfig,
+  baseCenter,
+  rowLetter,
+  arcId,
+) {
+  if (
+    !baseCenter ||
+    !Number.isFinite(baseCenter.x) ||
+    !Number.isFinite(baseCenter.y)
+  ) {
+    return null;
+  }
+
+  const resolvedArcLayout = resolveArcLayoutConfig(arcConfig);
+  const collisionIndex = buildCollisionIndex(
+    existingSeats,
+    COLLISION_INDEX_CELL_SIZE,
+  );
+  const maxSeatRadius = getMaxSeatRadius(existingSeats);
+
+  for (
+    let attemptIndex = 0;
+    attemptIndex < ARC_AUTO_PLACEMENT_MAX_ATTEMPTS;
+    attemptIndex += 1
+  ) {
+    const centerPoint = {
+      x: baseCenter.x,
+      y: baseCenter.y + attemptIndex * ARC_AUTO_PLACEMENT_Y_STEP,
+    };
+    const arcPlacements = buildArcSeatPlacements({
+      centerPoint,
+      rowLetter,
+      arcId,
+      ...resolvedArcLayout,
+    });
+
+    if (
+      !hasArcPlacementCollision(arcPlacements, collisionIndex, maxSeatRadius)
+    ) {
+      return arcPlacements;
+    }
+  }
+
+  return null;
+}
+
+function buildAutoPlacedArcPlacements(
+  existingSeats,
+  arcConfig,
+  fallbackCenter,
+  rowLetter,
+  arcId,
+) {
+  const resolvedArcLayout = resolveArcLayoutConfig(arcConfig);
+  const baseCenter = resolveArcPlacementCenter(
+    existingSeats,
+    fallbackCenter,
+    resolvedArcLayout.radius,
+  );
+
+  return findAvailableArcPlacements(
+    existingSeats,
+    resolvedArcLayout,
+    baseCenter,
+    rowLetter,
+    arcId,
+  );
+}
 
 function sortArcSeatsByLayoutOrder(arcSeats) {
   return [...arcSeats].sort((leftSeat, rightSeat) => {
@@ -72,6 +212,90 @@ function sortArcSeatsByLayoutOrder(arcSeats) {
       : 0;
     return leftNumber - rightNumber;
   });
+}
+
+function distributeIndices(itemCount, slotCount) {
+  if (itemCount <= 0 || slotCount <= 0) return [];
+  if (itemCount === 1) {
+    return [Math.round((slotCount - 1) / 2)];
+  }
+
+  return Array.from({ length: itemCount }, (_, index) =>
+    Math.round((index * (slotCount - 1)) / (itemCount - 1)),
+  );
+}
+
+function buildArcSeatUpdatePayload(
+  seat,
+  point,
+  index,
+  rowLetter,
+  groupMetadata,
+  centerPoint,
+  resolvedArcLayout,
+) {
+  return {
+    ...seat,
+    x: point.x,
+    y: point.y,
+    row: rowLetter,
+    number: index + 1,
+    label: generateSeatLabel(rowLetter, index + 1),
+    groupId: groupMetadata.groupId,
+    groupType: groupMetadata.groupType,
+    rowId: groupMetadata.rowId,
+    arcId: groupMetadata.arcId,
+    arcCenterX: centerPoint.x,
+    arcCenterY: centerPoint.y,
+    arcRadius: resolvedArcLayout.radius,
+    arcAngle: resolvedArcLayout.arcAngle,
+    arcRotation: resolvedArcLayout.rotation,
+    arcSeatCount: resolvedArcLayout.seatCount,
+    arcSeatIndex: index,
+    arcSeatSpacing: resolvedArcLayout.seatSpacing,
+  };
+}
+
+function createArcSeatFromTemplate(
+  templateSeat,
+  point,
+  index,
+  rowLetter,
+  groupMetadata,
+  centerPoint,
+  resolvedArcLayout,
+) {
+  const newSeat = generateSeat(point, {
+    row: rowLetter,
+    number: index + 1,
+    label: generateSeatLabel(rowLetter, index + 1),
+    seatType: templateSeat.seatType,
+    width: templateSeat.width,
+    height: templateSeat.height,
+    size: templateSeat.size,
+    category: templateSeat.category,
+    status: templateSeat.status,
+    price: templateSeat.price,
+    ...groupMetadata,
+    arcCenterX: centerPoint.x,
+    arcCenterY: centerPoint.y,
+    arcRadius: resolvedArcLayout.radius,
+    arcAngle: resolvedArcLayout.arcAngle,
+    arcRotation: resolvedArcLayout.rotation,
+    arcSeatCount: resolvedArcLayout.seatCount,
+    arcSeatIndex: index,
+    arcSeatSpacing: resolvedArcLayout.seatSpacing,
+  });
+
+  return {
+    ...newSeat,
+    fill: templateSeat.fill ?? newSeat.fill,
+    stroke: templateSeat.stroke ?? newSeat.stroke,
+    radius: templateSeat.radius ?? newSeat.radius,
+    size: templateSeat.size ?? newSeat.size,
+    width: templateSeat.width ?? newSeat.width,
+    height: templateSeat.height ?? newSeat.height,
+  };
 }
 
 function buildUpdatedArcSeats(arcSeats, arcUpdates = {}) {
@@ -99,31 +323,121 @@ function buildUpdatedArcSeats(arcSeats, arcUpdates = {}) {
     return null;
   }
 
+  const nextSeatCount = normalizeArcSeatCount(
+    arcUpdates.arcSeatCount ?? arcUpdates.seatCount ?? orderedArcSeats.length,
+  );
+  const parsedArcAngle = Number(arcUpdates.arcAngle);
+  const parsedArcRadius = Number(arcUpdates.arcRadius);
+  const parsedArcSpacing = Number(arcUpdates.arcSeatSpacing);
+  const nextRadius = normalizeArcRadius(
+    Number.isFinite(parsedArcRadius) ? parsedArcRadius : baseSeat.arcRadius,
+  );
+  const nextArcAngle =
+    Number.isFinite(parsedArcAngle)
+      ? parsedArcAngle
+      : Number.isFinite(parsedArcSpacing) && nextSeatCount > 1
+        ? calculateArcAngleFromSpacing(
+          nextSeatCount,
+          nextRadius,
+          parsedArcSpacing,
+        )
+        : baseSeat.arcAngle;
   const resolvedArcLayout = resolveArcLayoutConfig({
-    seatCount: orderedArcSeats.length,
-    arcAngle: arcUpdates.arcAngle ?? baseSeat.arcAngle,
-    seatSpacing: arcUpdates.arcSeatSpacing ?? baseSeat.arcSeatSpacing,
-    radius: arcUpdates.arcRadius ?? baseSeat.arcRadius,
+    seatCount: nextSeatCount,
+    arcAngle: nextArcAngle,
+    radius: nextRadius,
     rotation: arcUpdates.arcRotation ?? baseSeat.arcRotation,
   });
+  const arcLayout = {
+    ...resolvedArcLayout,
+    seatSpacing: calculateArcSeatSpacing(
+      resolvedArcLayout.seatCount,
+      resolvedArcLayout.arcAngle,
+      resolvedArcLayout.radius,
+    ),
+  };
   const nextLayoutPoints = buildArcLayoutPoints({
     centerPoint,
-    ...resolvedArcLayout,
+    ...arcLayout,
   });
+  const rowLetter = baseSeat.row || "A";
+  const groupMetadata = createSeatGroupMetadata(
+    ELEMENT_TYPES.ARC,
+    baseSeat.groupId,
+  );
 
-  return orderedArcSeats.map((seat, index) => ({
-    ...seat,
-    x: nextLayoutPoints[index].x,
-    y: nextLayoutPoints[index].y,
-    arcCenterX: centerPoint.x,
-    arcCenterY: centerPoint.y,
-    arcRadius: resolvedArcLayout.radius,
-    arcAngle: resolvedArcLayout.arcAngle,
-    arcRotation: resolvedArcLayout.rotation,
-    arcSeatCount: orderedArcSeats.length,
-    arcSeatIndex: index,
-    arcSeatSpacing: resolvedArcLayout.seatSpacing,
-  }));
+  if (nextSeatCount === orderedArcSeats.length) {
+    return orderedArcSeats.map((seat, index) =>
+      buildArcSeatUpdatePayload(
+        seat,
+        nextLayoutPoints[index],
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      ),
+    );
+  }
+
+  if (nextSeatCount < orderedArcSeats.length) {
+    const keptSeatIndices = distributeIndices(
+      nextSeatCount,
+      orderedArcSeats.length,
+    );
+
+    return keptSeatIndices.map((seatIndex, index) =>
+      buildArcSeatUpdatePayload(
+        orderedArcSeats[seatIndex],
+        nextLayoutPoints[index],
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      ),
+    );
+  }
+
+  const reusedSeatByNextIndex = new Map(
+    distributeIndices(orderedArcSeats.length, nextSeatCount).map(
+      (nextIndex, seatIndex) => [nextIndex, orderedArcSeats[seatIndex]],
+    ),
+  );
+
+  return nextLayoutPoints.map((point, index) => {
+    const existingSeat = reusedSeatByNextIndex.get(index);
+
+    if (existingSeat) {
+      return buildArcSeatUpdatePayload(
+        existingSeat,
+        point,
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      );
+    }
+
+    const templateSeat =
+      orderedArcSeats[
+        Math.round(
+          (index * (orderedArcSeats.length - 1)) /
+            Math.max(nextSeatCount - 1, 1),
+        )
+      ] ?? baseSeat;
+
+    return createArcSeatFromTemplate(
+      templateSeat,
+      point,
+      index,
+      rowLetter,
+      groupMetadata,
+      centerPoint,
+      arcLayout,
+    );
+  });
 }
 
 function applyArcGroupLayout(state, arcGroupId, arcUpdates = {}) {
@@ -137,12 +451,39 @@ function applyArcGroupLayout(state, arcGroupId, arcUpdates = {}) {
 
   if (!updatedArcSeats) return state;
 
-  const updatedArcSeatMap = new Map(
-    updatedArcSeats.map((seat) => [seat.id, seat]),
-  );
+  const originalArcSeatIdSet = new Set(arcSeats.map((seat) => seat.id));
+  const nextArcSeatIdSet = new Set(updatedArcSeats.map((seat) => seat.id));
+  const isCompleteArcSelection =
+    state.selectedSeatIds.length === arcSeats.length &&
+    state.selectedSeatIds.every((seatId) => originalArcSeatIdSet.has(seatId));
+  const nextSelectedSeatIds = isCompleteArcSelection
+    ? updatedArcSeats.map((seat) => seat.id)
+    : state.selectedSeatIds.filter(
+      (seatId) =>
+        !originalArcSeatIdSet.has(seatId) || nextArcSeatIdSet.has(seatId),
+    );
+
+  const nextSeats = [];
+  let insertedUpdatedArcSeats = false;
+
+  state.seats.forEach((seat) => {
+    if (
+      seat.groupType === ELEMENT_TYPES.ARC &&
+      seat.groupId === arcGroupId
+    ) {
+      if (!insertedUpdatedArcSeats) {
+        nextSeats.push(...updatedArcSeats);
+        insertedUpdatedArcSeats = true;
+      }
+      return;
+    }
+
+    nextSeats.push(seat);
+  });
 
   return {
-    seats: state.seats.map((seat) => updatedArcSeatMap.get(seat.id) ?? seat),
+    seats: nextSeats,
+    selectedSeatIds: nextSelectedSeatIds,
   };
 }
 
@@ -999,23 +1340,37 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         };
       }),
 
-    commitArc: (arcPoints) =>
+    commitArc: (arcConfig, centerPoint) =>
       trackedSet((state) => {
-        if (state.activeTool !== TOOL_ARC || arcPoints.length === 0)
+        if (state.activeTool !== TOOL_ARC) return state;
+        if (
+          !centerPoint ||
+          !Number.isFinite(centerPoint.x) ||
+          !Number.isFinite(centerPoint.y)
+        ) {
           return state;
+        }
 
         const currentRowIndex = state.nextRowIndex;
         const rowLetter = getRowLetter(currentRowIndex);
         const arcId = createId(ELEMENT_TYPES.ARC);
-
-        const seatsWithOptions = generateArcSeats(arcPoints, rowLetter, arcId);
-        const nextSeats = appendNonOverlappingSeats(
+        const arcPlacements = findAvailableArcPlacements(
           state.seats,
-          seatsWithOptions,
+          arcConfig,
+          centerPoint,
+          rowLetter,
+          arcId,
         );
 
+        if (!arcPlacements?.length) {
+          return state;
+        }
+
         return {
-          seats: nextSeats,
+          seats: normalizeGeneratedArcGroup(
+            appendNonOverlappingSeats(state.seats, arcPlacements),
+            arcId,
+          ),
           nextRowIndex: currentRowIndex + 1,
         };
       }),
@@ -1025,23 +1380,23 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         if (state.activeTool !== TOOL_ARC) return state;
 
         const arcCenter = centerPoint ?? state.arcGeneratorCenter;
-        if (
-          !arcCenter ||
-          !Number.isFinite(arcCenter.x) ||
-          !Number.isFinite(arcCenter.y)
-        ) {
+        if (!arcCenter || !Number.isFinite(arcCenter.x)) {
           return state;
         }
 
         const currentRowIndex = state.nextRowIndex;
         const rowLetter = getRowLetter(currentRowIndex);
         const arcId = createId(ELEMENT_TYPES.ARC);
-        const arcPlacements = buildArcSeatPlacements({
-          centerPoint: arcCenter,
+        const arcPlacements = buildAutoPlacedArcPlacements(
+          state.seats,
+          arcConfig,
+          arcCenter,
           rowLetter,
           arcId,
-          ...arcConfig,
-        });
+        );
+
+        if (!arcPlacements?.length) return state;
+
         const nextSeats = normalizeGeneratedArcGroup(
           appendNonOverlappingSeats(state.seats, arcPlacements),
           arcId,

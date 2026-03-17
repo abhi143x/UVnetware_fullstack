@@ -3,13 +3,13 @@ import EditorCanvas from "./EditorCanvas";
 import Toolbar from "./Toolbar";
 import UndoRedoControls from "./history/UndoRedoControls";
 import PropertiesPanel from "./PropertiesPanel";
-import ArcToolPanel from "./ArcToolPanel";
 import TemplatesPanel from "./TemplatesPanel";
 import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ARC, TOOL_SELECT, TOOL_SEAT } from "./constants/tools";
+import { TOOL_SELECT, TOOL_SEAT } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
 import { SeatTypeSelector } from "./components/SeatTypeSelector";
+import { ELEMENT_TYPES } from "./domain/elementTypes";
 
 function Editor() {
   const [saveStatus, setSaveStatus] = useState("idle"); // 'idle' | 'saved'
@@ -19,6 +19,7 @@ function Editor() {
 
   const activeTool = useEditorStore((state) => state.activeTool);
   const setActiveTool = useEditorStore((state) => state.setActiveTool);
+  const seats = useEditorStore((state) => state.seats);
   const selectedSeatIds = useEditorStore((state) => state.selectedSeatIds);
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
   const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
@@ -34,13 +35,34 @@ function Editor() {
 
   const clearLayout = useEditorStore((state) => state.clearLayout);
   const alignSelection = useEditorStore((state) => state.alignSelection);
-  const hasSelection = selectedSeatIds.length > 0 || selectedTextIds.length > 0;
   const hasTextSelection = selectedTextIds.length > 0;
   const hasSeatSelection = selectedSeatIds.length > 0;
   const hasShapeSelection = selectedShapeIds.length > 0;
+  const selectedSeats = hasSeatSelection
+    ? seats.filter((seat) => selectedSeatIds.includes(seat.id))
+    : [];
+  const selectedArcGroupId =
+    hasSeatSelection &&
+    selectedSeats.every(
+      (seat) =>
+        seat.groupType === ELEMENT_TYPES.ARC &&
+        seat.groupId === selectedSeats[0]?.groupId,
+    )
+      ? selectedSeats[0]?.groupId
+      : null;
+  const selectedArcGroupSeats = selectedArcGroupId
+    ? seats.filter(
+        (seat) =>
+          seat.groupType === ELEMENT_TYPES.ARC &&
+          seat.groupId === selectedArcGroupId,
+      )
+    : [];
+  const isCompleteArcSelection =
+    Boolean(selectedArcGroupId) &&
+    selectedArcGroupSeats.length === selectedSeats.length &&
+    selectedArcGroupSeats.length > 0;
   const showProperties =
-    activeTool === TOOL_ARC ||
-    (hasSeatSelection && activeTool === TOOL_SELECT) ||
+    (hasSeatSelection && activeTool === TOOL_SELECT && !isCompleteArcSelection) ||
     (hasTextSelection && activeTool === TOOL_TEXT) ||
     (hasShapeSelection && activeTool === TOOL_SELECT);
   const isOverCapacity = seatCount > 500;
@@ -86,10 +108,11 @@ function Editor() {
         shapes: parsed.shapes || [],
       });
 
-      setCurrentLayoutId(parsed.currentLayoutId || null);
-      setCurrentLayoutName(parsed.currentLayoutName || "");
-
-      setShowRestoreMsg(true); // ✅ SHOW MESSAGE
+      queueMicrotask(() => {
+        setCurrentLayoutId(parsed.currentLayoutId || null);
+        setCurrentLayoutName(parsed.currentLayoutName || "");
+        setShowRestoreMsg(true);
+      });
 
       return;
     }
@@ -105,8 +128,10 @@ function Editor() {
         shapes: layout.shapes || [],
       });
 
-      setCurrentLayoutId(layout.id);
-      setCurrentLayoutName(layout.name);
+      queueMicrotask(() => {
+        setCurrentLayoutId(layout.id);
+        setCurrentLayoutName(layout.name);
+      });
 
       localStorage.removeItem("uvnet_load_layout");
     }
@@ -347,16 +372,12 @@ function Editor() {
         {showProperties && (
           <div className="absolute bottom-3 right-3 top-18 z-20 overflow-hidden rounded-xl border border-white/12 bg-[#0b1118]/96 shadow-[0_18px_45px_rgba(0,0,0,0.5)] backdrop-blur-md">
             <div className="flex h-full flex-col">
-              {activeTool === TOOL_ARC ? (
-                <ArcToolPanel />
-              ) : (
-                <>
-                  <SelectedSeatSpacingControl />
-                  <div className="flex-1 min-h-0">
-                    <PropertiesPanel />
-                  </div>
-                </>
-              )}
+              <>
+                <SelectedSeatSpacingControl />
+                <div className="flex-1 min-h-0">
+                  <PropertiesPanel />
+                </div>
+              </>
             </div>
           </div>
         )}
