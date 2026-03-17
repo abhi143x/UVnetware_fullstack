@@ -1,15 +1,63 @@
 // ─── Selection Slice ──────────────────────────────────────────────────────────
-// Manages seat/text selection, smart row selection, marquee, and copy/paste.
+// Manages seat/text selection, grouped seat selection, marquee, and copy/paste.
 
 import { TOOL_SELECT } from "../../constants/tools";
-import { DEFAULT_SEAT_RADIUS, createId } from "../../services/seatService";
 import {
-  SMART_ROW_ANGLE_TOLERANCE,
-  SMART_ROW_MIN_DISTANCE_SQUARED,
-} from "../../services/rowService";
+  DEFAULT_SEAT_RADIUS,
+  createId,
+  createSeatGroupMetadata,
+} from "../../services/seatService";
 import { isOverlapping } from "../../services/layoutService";
 import { generateSeatLabel } from "../../utils/seatNumbering";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
+
+const GROUP_SELECTABLE_TYPES = new Set([ELEMENT_TYPES.ROW, ELEMENT_TYPES.ARC]);
+
+function isGroupedSeat(seat) {
+  return Boolean(
+    seat?.groupId &&
+      seat?.groupType &&
+      GROUP_SELECTABLE_TYPES.has(seat.groupType),
+  );
+}
+
+function getGroupedSeatIds(clickedSeat, seats) {
+  if (!clickedSeat) return [];
+  if (!isGroupedSeat(clickedSeat)) return [clickedSeat.id];
+
+  const selectedSeatIds = [];
+
+  seats.forEach((seat) => {
+    if (
+      seat.groupId === clickedSeat.groupId &&
+      seat.groupType === clickedSeat.groupType
+    ) {
+      selectedSeatIds.push(seat.id);
+    }
+  });
+
+  return selectedSeatIds.length > 0 ? selectedSeatIds : [clickedSeat.id];
+}
+
+function isMultiSelectEvent(event) {
+  return Boolean(event?.evt?.shiftKey || event?.shiftKey);
+}
+
+function getPastedSeatGroupMetadata(seat, groupIdMap) {
+  if (!isGroupedSeat(seat)) return {};
+
+  const sourceKey = `${seat.groupType}:${seat.groupId}`;
+  let nextGroupId = groupIdMap.get(sourceKey);
+
+  if (!nextGroupId) {
+    nextGroupId = createId(
+      seat.groupType === ELEMENT_TYPES.ARC ? ELEMENT_TYPES.ARC : ELEMENT_TYPES.ROW,
+    );
+    groupIdMap.set(sourceKey, nextGroupId);
+  }
+
+  return createSeatGroupMetadata(seat.groupType, nextGroupId);
+}
 
 export function createSelectionSlice(set, get, { trackedSet }) {
   return {
@@ -97,67 +145,17 @@ export function createSelectionSlice(set, get, { trackedSet }) {
         const clickedSeat = state.seats.find((s) => s.id === seatId);
         if (!clickedSeat) return state;
 
-        const bucketCounts = new Map();
-        let dominantBucketKey = null;
-        let dominantBucketCount = 0;
+        const groupedSeatIds = getGroupedSeatIds(clickedSeat, state.seats);
 
-        for (const seat of state.seats) {
-          if (seat.id === seatId) continue;
-
-          const dx = seat.x - clickedSeat.x;
-          const dy = seat.y - clickedSeat.y;
-          const distanceSquared = dx * dx + dy * dy;
-
-          if (distanceSquared <= SMART_ROW_MIN_DISTANCE_SQUARED) continue;
-
-          let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
-          if (angleDeg < 0) angleDeg += 180;
-          else if (angleDeg >= 180) angleDeg -= 180;
-
-          const bucketKey =
-            Math.round(angleDeg / SMART_ROW_ANGLE_TOLERANCE) *
-            SMART_ROW_ANGLE_TOLERANCE;
-          const nextCount = (bucketCounts.get(bucketKey) ?? 0) + 1;
-          bucketCounts.set(bucketKey, nextCount);
-
-          if (nextCount > dominantBucketCount) {
-            dominantBucketCount = nextCount;
-            dominantBucketKey = bucketKey;
-          }
-        }
-
-        if (dominantBucketKey === null || dominantBucketCount < 2) return state;
-
-        const angleRad = dominantBucketKey * (Math.PI / 180);
-        const ux = Math.cos(angleRad);
-        const uy = Math.sin(angleRad);
-        const rowSeats = [];
-
-        for (const seat of state.seats) {
-          const dx = seat.x - clickedSeat.x;
-          const dy = seat.y - clickedSeat.y;
-          const distance = Math.abs(dx * uy - dy * ux);
-          const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
-
-          if (distance < seatRadius * 1.2) {
-            rowSeats.push({ id: seat.id, projection: dx * ux + dy * uy });
-          }
-        }
-
-        if (rowSeats.length === 0) return state;
-
-        rowSeats.sort((a, b) => a.projection - b.projection);
-        const rowSeatIds = rowSeats.map((s) => s.id);
-
-        if (event?.evt?.shiftKey || event?.shiftKey) {
-          const selectedSeatIds = [
-            ...new Set([...state.selectedSeatIds, ...rowSeatIds]),
-          ];
+        if (isMultiSelectEvent(event)) {
           return {
-            selectedSeatIds,
+            selectedSeatIds: [
+              ...new Set([...state.selectedSeatIds, ...groupedSeatIds]),
+            ],
           };
         }
-        return { selectedSeatIds: rowSeatIds };
+
+        return { selectedSeatIds: groupedSeatIds };
       }),
 
     marqueeSelect: (seatIds, textIds, shapeIds, shiftKey) =>
@@ -254,6 +252,7 @@ export function createSelectionSlice(set, get, { trackedSet }) {
 
         // Track running count per row for pasted seats
         const pastedCountPerRow = {};
+        const pastedGroupIdMap = new Map();
 
         const newSeatIds = [];
         const pastedSeats = clipboard.seats.map((s) => {
@@ -264,8 +263,13 @@ export function createSelectionSlice(set, get, { trackedSet }) {
           pastedCountPerRow[row]++;
           const newNumber =
             (maxNumberPerRow[row] || 0) + pastedCountPerRow[row];
+          const groupMetadata = getPastedSeatGroupMetadata(
+            s,
+            pastedGroupIdMap,
+          );
           return {
             ...s,
+            ...groupMetadata,
             id: newId,
             x: clipboard.cx + s.x + offset,
             y: clipboard.cy + s.y + offset,

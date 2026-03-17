@@ -1,5 +1,6 @@
 import { generateLayoutId } from "../../../utils/layoutIdGenerator";
 import { generateSeatId } from "../../../utils/seatIdGenerator";
+import { ELEMENT_TYPES } from "../domain/elementTypes";
 
 export const DEFAULT_SEAT_RADIUS = 12;
 export const DEFAULT_SEAT_FILL = "#5fa7ff";
@@ -32,8 +33,40 @@ export function createId(prefix = "item") {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export function normalizeSeatGroupOptions(options = {}) {
+    const initialGroupType =
+        options.groupType === ELEMENT_TYPES.ROW || options.groupType === ELEMENT_TYPES.ARC
+            ? options.groupType
+            : null;
+    const rowId = options.rowId || null;
+    const arcId = options.arcId || null;
+    const groupType =
+        initialGroupType ||
+        (rowId ? ELEMENT_TYPES.ROW : arcId ? ELEMENT_TYPES.ARC : null);
+    const groupId = options.groupId || rowId || arcId || null;
+
+    return {
+        groupId,
+        groupType,
+        rowId:
+            groupType === ELEMENT_TYPES.ROW
+                ? rowId || groupId
+                : null,
+        arcId:
+            groupType === ELEMENT_TYPES.ARC
+                ? arcId || groupId
+                : null,
+    };
+}
+
+export function createSeatGroupMetadata(groupType, groupId) {
+    return normalizeSeatGroupOptions({ groupType, groupId });
+}
+
 export function generateSeat(point, options = {}) {
     const nextSeatId = reserveSeatId(options.seats);
+    const groupOptions = normalizeSeatGroupOptions(options);
+
     return {
         id: nextSeatId,
         seatId: nextSeatId,
@@ -47,6 +80,10 @@ export function generateSeat(point, options = {}) {
         row: options.row || null,
         number: options.number || null,
         label: options.label || null,
+        groupId: groupOptions.groupId,
+        groupType: groupOptions.groupType,
+        rowId: groupOptions.rowId,
+        arcId: groupOptions.arcId,
         category: options.category || null,
         status: options.status || "available", // available, reserved, sold, locked
         price: options.price || null,

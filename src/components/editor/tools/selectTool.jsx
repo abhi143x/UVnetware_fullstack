@@ -3,7 +3,6 @@ import {
   getShapeAbsolutePoints,
   getShapeBounds,
   getShapeResizeHandles,
-  normalizeShapeSize,
   SHAPE_TYPES,
 } from "../services/shapeService";
 
@@ -269,7 +268,7 @@ export class SelectTool {
   }
 
   handleClick(event, worldPoint, context) {
-    // Double click for smart row selection
+    // Double click selects a logical seat group (row or arc).
     if (event.detail === 2) {
       const clickedSeat = this.findSeatAtPoint(worldPoint, context.seats);
       if (clickedSeat) {

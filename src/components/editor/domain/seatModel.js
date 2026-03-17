@@ -7,6 +7,10 @@
  * @property {number} y
  * @property {number} [rotation]
  * @property {string|null} [label]
+ * @property {string|null} [groupId]
+ * @property {"row"|"arc"|null} [groupType]
+ * @property {string|null} [rowId]
+ * @property {string|null} [arcId]
  * @property {string|null} [category]
  * @property {number} [radius]
  * @property {number} [size]
@@ -24,6 +28,10 @@ export const SEAT_MODEL_FIELDS = Object.freeze([
     "y",
     "rotation",
     "label",
+    "groupId",
+    "groupType",
+    "rowId",
+    "arcId",
     "category",
     "radius",
     "size",

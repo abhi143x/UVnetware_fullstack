@@ -2,8 +2,41 @@
 // Venue template data generators. Depends only on services and seatNumbering.
 
 import { getRowLetter, generateSeatLabel } from "../../utils/seatNumbering";
-import { createId, createSeat } from "../../services/seatService";
+import {
+    createId,
+    createSeat,
+    createSeatGroupMetadata,
+} from "../../services/seatService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
+
+function createGroupedSeat(point, rowLetter, number, groupType, groupId) {
+    return createSeat(point, {
+        row: rowLetter,
+        number,
+        label: generateSeatLabel(rowLetter, number),
+        ...createSeatGroupMetadata(groupType, groupId),
+    });
+}
+
+function createGroupedRowSeat(point, rowLetter, number, rowId) {
+    return createGroupedSeat(
+        point,
+        rowLetter,
+        number,
+        ELEMENT_TYPES.ROW,
+        rowId,
+    );
+}
+
+function createGroupedArcSeat(point, rowLetter, number, arcId) {
+    return createGroupedSeat(
+        point,
+        rowLetter,
+        number,
+        ELEMENT_TYPES.ARC,
+        arcId,
+    );
+}
 
 export function generateSmallTheater() {
     const seats = [];
@@ -16,15 +49,14 @@ export function generateSmallTheater() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const rowId = createId(ELEMENT_TYPES.ROW);
         for (let s = 0; s < seatsPerRow; s++) {
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: startX + s * spacing, y: startY + r * spacing },
-                    {
-                        row: rowLetter,
-                        number: s + 1,
-                        label: generateSeatLabel(rowLetter, s + 1),
-                    },
+                    rowLetter,
+                    s + 1,
+                    rowId,
                 ),
             );
         }
@@ -61,15 +93,14 @@ export function generateMediumHall() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const rowId = createId(ELEMENT_TYPES.ROW);
         for (let s = 0; s < seatsPerRow; s++) {
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: startX + s * spacing, y: startY + r * spacing },
-                    {
-                        row: rowLetter,
-                        number: s + 1,
-                        label: generateSeatLabel(rowLetter, s + 1),
-                    },
+                    rowLetter,
+                    s + 1,
+                    rowId,
                 ),
             );
         }
@@ -106,6 +137,7 @@ export function generateLargeArena() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const arcId = createId(ELEMENT_TYPES.ARC);
         const seatsInRow = baseSeats + Math.floor(r * 1.5);
         const curveRadius = 200 + r * spacing;
         const angleSpan = Math.min(
@@ -119,13 +151,11 @@ export function generateLargeArena() {
             const x = Math.cos(angle) * curveRadius;
             const y = centerY + curveRadius - Math.sin(angle) * curveRadius;
             seats.push(
-                createSeat(
+                createGroupedArcSeat(
                     { x, y },
-                    {
-                        row: rowLetter,
-                        number: s + 1,
-                        label: generateSeatLabel(rowLetter, s + 1),
-                    },
+                    rowLetter,
+                    s + 1,
+                    arcId,
                 ),
             );
         }
@@ -168,15 +198,14 @@ export function generateConferenceRoom() {
         const startY = -60;
         for (let r = 0; r < section.rows; r++) {
             const rowLetter = getRowLetter(rowIndex + r);
+            const rowId = createId(ELEMENT_TYPES.ROW);
             for (let c = 0; c < section.cols; c++) {
                 seats.push(
-                    createSeat(
+                    createGroupedRowSeat(
                         { x: startX + c * spacing, y: startY + r * spacing },
-                        {
-                            row: rowLetter,
-                            number: c + 1,
-                            label: generateSeatLabel(rowLetter, c + 1),
-                        },
+                        rowLetter,
+                        c + 1,
+                        rowId,
                     ),
                 );
             }
@@ -225,6 +254,7 @@ export function generateAmphitheater() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const arcId = createId(ELEMENT_TYPES.ARC);
         const radius = 120 + r * spacing;
         const seatsInRow = Math.floor((Math.PI * radius) / spacing);
         const limitedSeats = Math.min(seatsInRow, 12 + r * 2);
@@ -236,13 +266,11 @@ export function generateAmphitheater() {
             const x = Math.cos(angle) * radius;
             const y = -Math.sin(angle) * radius + radius;
             seats.push(
-                createSeat(
+                createGroupedArcSeat(
                     { x, y },
-                    {
-                        row: rowLetter,
-                        number: s + 1,
-                        label: generateSeatLabel(rowLetter, s + 1),
-                    },
+                    rowLetter,
+                    s + 1,
+                    arcId,
                 ),
             );
         }
@@ -279,30 +307,39 @@ export function generateBus() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const rowId = createId(ELEMENT_TYPES.ROW);
         // Left pair
         seats.push(
-            createSeat(
+            createGroupedRowSeat(
                 { x: -spacing - aisleGap / 2, y: r * spacing },
-                { row: rowLetter, number: 1, label: generateSeatLabel(rowLetter, 1) },
+                rowLetter,
+                1,
+                rowId,
             ),
         );
         seats.push(
-            createSeat(
+            createGroupedRowSeat(
                 { x: -aisleGap / 2, y: r * spacing },
-                { row: rowLetter, number: 2, label: generateSeatLabel(rowLetter, 2) },
+                rowLetter,
+                2,
+                rowId,
             ),
         );
         // Right pair
         seats.push(
-            createSeat(
+            createGroupedRowSeat(
                 { x: aisleGap / 2, y: r * spacing },
-                { row: rowLetter, number: 3, label: generateSeatLabel(rowLetter, 3) },
+                rowLetter,
+                3,
+                rowId,
             ),
         );
         seats.push(
-            createSeat(
+            createGroupedRowSeat(
                 { x: spacing + aisleGap / 2, y: r * spacing },
-                { row: rowLetter, number: 4, label: generateSeatLabel(rowLetter, 4) },
+                rowLetter,
+                4,
+                rowId,
             ),
         );
         rowIndex++;
@@ -342,30 +379,39 @@ export function generateTrain() {
         const coachOffset = coach * (rowsPerCoach * spacing + coachGap);
         for (let r = 0; r < rowsPerCoach; r++) {
             const rowLetter = getRowLetter(rowIndex);
+            const rowId = createId(ELEMENT_TYPES.ROW);
             // Left pair
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: -spacing - aisleGap / 2, y: coachOffset + r * spacing },
-                    { row: rowLetter, number: 1, label: generateSeatLabel(rowLetter, 1) },
+                    rowLetter,
+                    1,
+                    rowId,
                 ),
             );
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: -aisleGap / 2, y: coachOffset + r * spacing },
-                    { row: rowLetter, number: 2, label: generateSeatLabel(rowLetter, 2) },
+                    rowLetter,
+                    2,
+                    rowId,
                 ),
             );
             // Right pair
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: aisleGap / 2, y: coachOffset + r * spacing },
-                    { row: rowLetter, number: 3, label: generateSeatLabel(rowLetter, 3) },
+                    rowLetter,
+                    3,
+                    rowId,
                 ),
             );
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: spacing + aisleGap / 2, y: coachOffset + r * spacing },
-                    { row: rowLetter, number: 4, label: generateSeatLabel(rowLetter, 4) },
+                    rowLetter,
+                    4,
+                    rowId,
                 ),
             );
             rowIndex++;
@@ -402,34 +448,31 @@ export function generateMovieTheatre() {
 
     for (let r = 0; r < rows; r++) {
         const rowLetter = getRowLetter(r);
+        const rowId = createId(ELEMENT_TYPES.ROW);
         const seatsLeft = 6 + Math.floor(r * 0.3);
         const seatsRight = seatsLeft;
         // Left section
         for (let s = 0; s < seatsLeft; s++) {
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     {
                         x: -(aisleGap / 2) - (seatsLeft - s) * spacing,
                         y: r * (spacing + 2),
                     },
-                    {
-                        row: rowLetter,
-                        number: s + 1,
-                        label: generateSeatLabel(rowLetter, s + 1),
-                    },
+                    rowLetter,
+                    s + 1,
+                    rowId,
                 ),
             );
         }
         // Right section
         for (let s = 0; s < seatsRight; s++) {
             seats.push(
-                createSeat(
+                createGroupedRowSeat(
                     { x: aisleGap / 2 + s * spacing, y: r * (spacing + 2) },
-                    {
-                        row: rowLetter,
-                        number: seatsLeft + s + 1,
-                        label: generateSeatLabel(rowLetter, seatsLeft + s + 1),
-                    },
+                    rowLetter,
+                    seatsLeft + s + 1,
+                    rowId,
                 ),
             );
         }

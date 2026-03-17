@@ -752,8 +752,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
         const currentRowIndex = state.nextRowIndex;
         const rowLetter = getRowLetter(currentRowIndex);
+        const rowId = createId(ELEMENT_TYPES.ROW);
 
-        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter);
+        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter, rowId);
         const nextSeats = appendNonOverlappingSeats(
           state.seats,
           seatsWithOptions,
@@ -772,8 +773,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
         const currentRowIndex = state.nextRowIndex;
         const rowLetter = getRowLetter(currentRowIndex);
+        const arcId = createId(ELEMENT_TYPES.ARC);
 
-        const seatsWithOptions = generateArcSeats(arcPoints, rowLetter);
+        const seatsWithOptions = generateArcSeats(arcPoints, rowLetter, arcId);
         const nextSeats = appendNonOverlappingSeats(
           state.seats,
           seatsWithOptions,
