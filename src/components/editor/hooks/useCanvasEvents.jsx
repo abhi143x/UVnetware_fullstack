@@ -12,10 +12,22 @@ export function useCanvasEvents({
   onToolMouseMove,
   onToolMouseUp,
   onToolClick,
+  snapEnabled,
+  gridSize,
 }) {
   const panSessionRef = useRef(null)
   const isSpacePressedRef = useRef(false)
   const suppressNextClickRef = useRef(false)
+
+  const getSnappedWorldPoint = useCallback((event) => {
+    const wp = getWorldPointFromStage(event.clientX, event.clientY);
+    if (!wp) return null;
+    if (!snapEnabled || event.altKey) return wp;
+    return {
+      x: Math.round(wp.x / gridSize) * gridSize,
+      y: Math.round(wp.y / gridSize) * gridSize
+    };
+  }, [getWorldPointFromStage, snapEnabled, gridSize]);
 
   const getCanvasRelativePoint = useCallback((clientX, clientY) => {
     const container = containerRef.current
@@ -44,7 +56,7 @@ export function useCanvasEvents({
   }, [getCanvasRelativePoint, zoomToPoint, panCamera, camera.scale])
 
   const handleMouseDown = useCallback((event) => {
-    const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
+    const worldPoint = getSnappedWorldPoint(event)
     if (!worldPoint) return
 
     // Handle panning with middle mouse (button 1) or space (handled via isSpacePressedRef)
@@ -64,7 +76,7 @@ export function useCanvasEvents({
 
     // Delegate to tool handler
     onToolMouseDown(event, worldPoint)
-  }, [getWorldPointFromStage, onToolMouseDown])
+  }, [getSnappedWorldPoint, onToolMouseDown])
 
   const handleMouseMove = useCallback((event) => {
     if (panSessionRef.current) {
@@ -78,11 +90,11 @@ export function useCanvasEvents({
       return
     }
 
-    const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
+    const worldPoint = getSnappedWorldPoint(event)
     if (!worldPoint) return
 
     onToolMouseMove(event, worldPoint)
-  }, [getWorldPointFromStage, panCamera, onToolMouseMove])
+  }, [getSnappedWorldPoint, panCamera, onToolMouseMove])
 
   const handleMouseUp = useCallback((event) => {
     const wasPanning = !!panSessionRef.current
@@ -103,20 +115,20 @@ export function useCanvasEvents({
 
     panSessionRef.current = null
 
-    const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
+    const worldPoint = getSnappedWorldPoint(event)
     if (!worldPoint) return
 
     onToolMouseUp(event, worldPoint)
-  }, [getWorldPointFromStage, onToolMouseUp])
+  }, [getSnappedWorldPoint, onToolMouseUp])
 
   const handleMouseLeave = useCallback((event) => {
     panSessionRef.current = null
 
-    const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
+    const worldPoint = getSnappedWorldPoint(event)
     if (!worldPoint) return
 
     onToolMouseUp(event, worldPoint)
-  }, [getWorldPointFromStage, onToolMouseUp])
+  }, [getSnappedWorldPoint, onToolMouseUp])
 
   const handleClick = useCallback((event) => {
     if (suppressNextClickRef.current) {
@@ -124,11 +136,11 @@ export function useCanvasEvents({
       return
     }
 
-    const worldPoint = getWorldPointFromStage(event.clientX, event.clientY)
+    const worldPoint = getSnappedWorldPoint(event)
     if (!worldPoint) return
 
     onToolClick(event, worldPoint)
-  }, [getWorldPointFromStage, onToolClick])
+  }, [getSnappedWorldPoint, onToolClick])
 
   // Attach event listeners
   useEffect(() => {
