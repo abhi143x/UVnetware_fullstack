@@ -46,17 +46,18 @@ export class ArcTool {
     this.commitArc = storeActions.commitArc;
   }
 
-  handleMouseDown(_event, worldPoint) {
+  handleMouseDown(_event, worldPoint, context) {
     return {
       type: "arc_start",
       centerPoint: worldPoint,
       endPoint: worldPoint,
       previewPoints: [],
       arcConfig: null,
+      seatType: context.selectedSeatType || 'chair',
     };
   }
 
-  handleMouseMove(_event, worldPoint, _context, session) {
+  handleMouseMove(_event, worldPoint, context, session) {
     if (!session) return session ?? null;
     if (session.type !== "arc_start" && session.type !== "arc_preview") {
       return session;
@@ -76,10 +77,11 @@ export class ArcTool {
       endPoint: worldPoint,
       previewPoints: preview.previewPoints,
       arcConfig: preview.arcConfig,
+      seatType: context.selectedSeatType || 'chair', // Always use current selection
     };
   }
 
-  handleMouseUp(_event, _worldPoint, _context, session) {
+  handleMouseUp(_event, worldPoint, context, session) {
     if (
       session?.type === "arc_preview" &&
       session.arcConfig &&
@@ -88,7 +90,7 @@ export class ArcTool {
         session.endPoint.y - session.centerPoint.y,
       ) >= MIN_ARC_COMMIT_DISTANCE
     ) {
-      this.commitArc?.(session.arcConfig, session.centerPoint);
+      this.commitArc?.(session.arcConfig, session.centerPoint, context.selectedSeatType || 'chair'); // Always use current selection
     }
     return null;
   }

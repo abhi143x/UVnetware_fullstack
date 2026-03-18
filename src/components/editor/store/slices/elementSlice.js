@@ -128,6 +128,7 @@ function findAvailableArcPlacements(
   baseCenter,
   rowLetter,
   arcId,
+  seatType,
 ) {
   if (
     !baseCenter ||
@@ -157,6 +158,7 @@ function findAvailableArcPlacements(
       centerPoint,
       rowLetter,
       arcId,
+      seatType,
       ...resolvedArcLayout,
     });
 
@@ -350,11 +352,7 @@ function buildUpdatedArcSeats(arcSeats, arcUpdates = {}) {
   });
   const arcLayout = {
     ...resolvedArcLayout,
-    seatSpacing: calculateArcSeatSpacing(
-      resolvedArcLayout.seatCount,
-      resolvedArcLayout.arcAngle,
-      resolvedArcLayout.radius,
-    ),
+    seatSpacing: 150, // Force 150px spacing for all arc updates
   };
   const nextLayoutPoints = buildArcLayoutPoints({
     centerPoint,
@@ -1326,7 +1324,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     // ─── Commit Row / Arc ─────────────────────────────────────────────────────
 
-    commitRow: (rowPoints) =>
+    commitRow: (rowPoints, seatType) =>
       trackedSet((state) => {
         if (state.activeTool !== TOOL_ROW || rowPoints.length === 0)
           return state;
@@ -1335,7 +1333,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const rowLetter = getRowLetter(currentRowIndex);
         const rowId = createId(ELEMENT_TYPES.ROW);
 
-        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter, rowId);
+        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter, rowId, seatType);
         const nextSeats = appendNonOverlappingSeats(
           state.seats,
           seatsWithOptions,
@@ -1347,7 +1345,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         };
       }),
 
-    commitArc: (arcConfig, centerPoint) =>
+    commitArc: (arcConfig, centerPoint, seatType) =>
       trackedSet((state) => {
         if (state.activeTool !== TOOL_ARC) return state;
         if (
@@ -1367,6 +1365,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           centerPoint,
           rowLetter,
           arcId,
+          seatType,
         );
 
         if (!arcPlacements?.length) {
@@ -1408,6 +1407,15 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           appendNonOverlappingSeats(state.seats, arcPlacements),
           arcId,
         );
+
+        // Force 150px spacing for all arc seats
+        const finalSeats = nextSeats.map(seat => ({
+          ...seat,
+          options: {
+            ...seat.options,
+            arcSeatSpacing: 150, // Override with fixed 150px spacing
+          },
+        }));
         const generatedArcSeatIds = nextSeats
           .filter(
             (seat) =>

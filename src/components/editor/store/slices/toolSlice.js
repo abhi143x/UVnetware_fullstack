@@ -1,13 +1,13 @@
 // ─── Tool Slice ───────────────────────────────────────────────────────────────
 // Manages active tool selection and transient text tool state.
 
-import { TOOL_SEAT } from "../../constants/tools";
+import { TOOL_SELECT, TOOL_SEAT } from "../../constants/tools";
 import { SEAT_TYPES } from "../../constants/seatTypes";
 
 export function createToolSlice(set) {
   return {
     // State
-    activeTool: TOOL_SEAT,
+    activeTool: TOOL_SELECT,
     textPrompt: null,
     textDraft: "",
     selectedShapeType: "rectangle",

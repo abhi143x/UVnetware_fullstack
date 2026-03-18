@@ -41,6 +41,7 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
   const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
   const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
+  const selectedSeatType = useEditorStore((state) => state.selectedSeatType);
   const categories = useEditorStore((state) => state.categories);
   const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
   const snapEnabled = useEditorStore((state) => state.snapEnabled);
@@ -246,10 +247,11 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
     selectedTextIds,
     selectedShapeIds,
     selectedShapeType,
+    selectedSeatType,
     seatsById: new Map(seats.map((seat) => [seat.id, seat])),
     textsById: new Map(texts.map((text) => [text.id, text])),
     shapesById: new Map(shapes.map((shape) => [shape.id, shape])),
-  }), [activeTool, seats, texts, shapes, selectedSeatIds, selectedTextIds, selectedShapeIds, selectedShapeType]);
+  }), [activeTool, seats, texts, shapes, selectedSeatIds, selectedTextIds, selectedShapeIds, selectedShapeType, selectedSeatType]);
 
   // Custom mouse handlers that detect resize
   const handleEditorMouseDown = useCallback((e, wp) => {

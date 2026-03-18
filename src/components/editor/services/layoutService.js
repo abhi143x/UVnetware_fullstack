@@ -19,6 +19,7 @@ export function areCirclesOverlapping(x1, y1, radius1, x2, y2, radius2) {
 
 export function isOverlapping(x, y, seats, newRadius = DEFAULT_SEAT_RADIUS) {
   for (const seat of seats) {
+    const seatRadius = (seat.radius || (seat.size ? seat.size / 2 : DEFAULT_SEAT_RADIUS));
     if (
       areCirclesOverlapping(
         x,
@@ -26,7 +27,7 @@ export function isOverlapping(x, y, seats, newRadius = DEFAULT_SEAT_RADIUS) {
         newRadius,
         seat.x,
         seat.y,
-        seat.radius ?? DEFAULT_SEAT_RADIUS,
+        seatRadius,
       )
     ) {
       return true;
@@ -107,6 +108,7 @@ export function isOverlappingWithCollisionIndex(
   );
 
   for (const seat of nearbySeats) {
+    const seatRadius = (seat.radius || (seat.size ? seat.size / 2 : DEFAULT_SEAT_RADIUS));
     if (
       areCirclesOverlapping(
         x,
@@ -114,7 +116,7 @@ export function isOverlappingWithCollisionIndex(
         newRadius,
         seat.x,
         seat.y,
-        seat.radius ?? DEFAULT_SEAT_RADIUS,
+        seatRadius,
       )
     ) {
       return true;
@@ -125,8 +127,10 @@ export function isOverlappingWithCollisionIndex(
 
 export function getMaxSeatRadius(seats) {
   return seats.reduce(
-    (maxRadius, seat) =>
-      Math.max(maxRadius, seat.radius ?? DEFAULT_SEAT_RADIUS),
+    (maxRadius, seat) => {
+      const seatRadius = (seat.radius || (seat.size ? seat.size / 2 : DEFAULT_SEAT_RADIUS));
+      return Math.max(maxRadius, seatRadius);
+    },
     DEFAULT_SEAT_RADIUS,
   );
 }
@@ -173,12 +177,16 @@ export function appendNonOverlappingSeats(
       pointOptions.label = generateSeatLabel(pointOptions.row, nextRowNumber);
     }
 
-    const newSeat = createSeat(point, pointOptions);
+    const newSeat = createSeat(point, {
+      ...pointOptions,
+      seatType: point.seatType, // Ensure seat type is preserved
+    });
     nextSeats.push(newSeat);
     addSeatToCollisionIndex(collisionIndex, newSeat, COLLISION_INDEX_CELL_SIZE);
+    const seatRadius = (newSeat.radius || (newSeat.size ? newSeat.size / 2 : DEFAULT_SEAT_RADIUS));
     maxSeatRadius = Math.max(
       maxSeatRadius,
-      newSeat.radius ?? DEFAULT_SEAT_RADIUS,
+      seatRadius,
     );
     addedSeatCount += 1;
   });

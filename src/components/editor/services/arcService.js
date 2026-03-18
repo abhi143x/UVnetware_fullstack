@@ -161,10 +161,14 @@ export function buildArcSeatPlacements({
     centerPoint,
     rowLetter,
     arcId,
+    seatType,
     ...config
 }) {
     const resolved = resolveArcLayoutConfig(config);
     const groupOptions = createSeatGroupMetadata(ELEMENT_TYPES.ARC, arcId);
+    
+    // Use fixed 80px spacing for consistency with row spacing
+    const fixedSpacing = 150; // Much more spacing for very visible gap
 
     return buildArcLayoutPoints({
         centerPoint,
@@ -172,6 +176,7 @@ export function buildArcSeatPlacements({
     }).map((point, index) => ({
         x: point.x,
         y: point.y,
+        seatType: seatType || 'chair',
         options: {
             row: rowLetter,
             number: index + 1,
@@ -183,8 +188,7 @@ export function buildArcSeatPlacements({
             arcAngle: resolved.arcAngle,
             arcRotation: resolved.rotation,
             arcSeatCount: resolved.seatCount,
-            arcSeatIndex: index,
-            arcSeatSpacing: resolved.seatSpacing,
+            arcSeatSpacing: fixedSpacing, // Use fixed 80px spacing
         },
     }));
 }

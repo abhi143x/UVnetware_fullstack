@@ -57,7 +57,7 @@ export function resolveRowAngle(rawAngle, shiftKey) {
   return finalAngleDeg * RADIANS_PER_DEGREE
 }
 
-export function buildRowPoints(startPoint, endPoint, shiftKey) {
+export function buildRowPoints(startPoint, endPoint, shiftKey, seatType = 'chair') {
   const deltaX = endPoint.x - startPoint.x
   const deltaY = endPoint.y - startPoint.y
   const rawAngle = Math.atan2(deltaY, deltaX)
@@ -65,13 +65,21 @@ export function buildRowPoints(startPoint, endPoint, shiftKey) {
   const unitX = Math.cos(finalAngle)
   const unitY = Math.sin(finalAngle)
   const distance = Math.hypot(deltaX, deltaY)
-  const seatCount = Math.floor(distance / GRID_SIZE)
+  
+  // Dynamic spacing based on seat type
+  let spacing = GRID_SIZE; // Default 40px
+  if (seatType === 'sofa') spacing = 80; // More space for large sofas
+  if (seatType === 'table') spacing = 80; // Medium space for tables
+  if (seatType === 'wheelchair') spacing = 80; // Space for wheelchairs
+  if (seatType === 'roundTable') spacing = 80; // Space for round tables
+  
+  const seatCount = Math.floor(distance / spacing)
   const points = []
 
   for (let step = 0; step <= seatCount; step += 1) {
     points.push({
-      x: startPoint.x + unitX * (step * GRID_SIZE),
-      y: startPoint.y + unitY * (step * GRID_SIZE),
+      x: startPoint.x + unitX * (step * spacing),
+      y: startPoint.y + unitY * (step * spacing),
     })
   }
 

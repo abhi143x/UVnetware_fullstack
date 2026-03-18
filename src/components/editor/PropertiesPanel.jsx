@@ -782,33 +782,6 @@ function PropertiesPanel() {
                 </div>
               </Field>
 
-              {/* Price */}
-              <Field label="Price">
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">
-                    $
-                  </span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={
-                      isMultipleSeats
-                        ? (commonPrice ?? "")
-                        : (selectedSeat?.price ?? "")
-                    }
-                    onChange={(e) =>
-                      handleSeatUpdate(
-                        "price",
-                        e.target.value ? parseFloat(e.target.value) : null,
-                      )
-                    }
-                    placeholder={
-                      isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"
-                    }
-                    className="pl-6"
-                  />
-                </div>
-              </Field>
             </div>
 
             {/* Categories Manager */}

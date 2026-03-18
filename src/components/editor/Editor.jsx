@@ -5,14 +5,14 @@ import UndoRedoControls from "./history/UndoRedoControls";
 import PropertiesPanel from "./PropertiesPanel";
 import TemplatesPanel from "./TemplatesPanel";
 import SelectedSeatSpacingControl from "./SelectedSeatSpacingControl";
+import { SeatTypeSelector } from "./components/SeatTypeSelector";
 import { useEditorStore } from "./store/editorStore";
 import {
   buildPersistedLayoutSnapshot,
   EDITOR_PERSISTENCE_KEY,
 } from "./store/slices/canvasSlice";
-import { TOOL_SELECT, TOOL_SEAT } from "./constants/tools";
+import { TOOL_SELECT, TOOL_SEAT, TOOL_ROW, TOOL_ARC } from "./constants/tools";
 import { TOOL_TEXT } from "./constants/tools";
-import { SeatTypeSelector } from "./components/SeatTypeSelector";
 import { ELEMENT_TYPES } from "./domain/elementTypes";
 import { LayoutModal } from "./components/LayoutModal";
 
@@ -28,6 +28,8 @@ function parseStoredJSON(key, fallback = null) {
 function Editor() {
   const [saveStatus, setSaveStatus] = useState("idle"); // 'idle' | 'saved'
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showSeatTypePanel, setShowSeatTypePanel] = useState(false);
+  const [showRowArcSeatTypePanel, setShowRowArcSeatTypePanel] = useState(false);
   const [navbarHeight, setNavbarHeight] = useState(72);
   const centerOnSeatsRef = useRef(null);
   const zoomControlRef = useRef(null);
@@ -47,12 +49,44 @@ function Editor() {
   const setSelectedSeatType = useEditorStore(
     (state) => state.setSelectedSeatType,
   );
+  
+  // Auto-close Row/Arc seat type panel when seat type is selected
+  const handleSeatTypeSelect = (seatType) => {
+    setSelectedSeatType(seatType);
+    setShowRowArcSeatTypePanel(false); // Auto-close Row/Arc panel after selection
+    setShowSeatTypePanel(false); // Also auto-close regular Seat panel after selection
+  };
   const seatCount = useEditorStore((state) => state.seats.length);
 
   const clearLayout = useEditorStore((state) => state.clearLayout);
   const snapEnabled = useEditorStore((state) => state.snapEnabled);
   const toggleSnap = useEditorStore((state) => state.toggleSnap);
   const alignSelection = useEditorStore((state) => state.alignSelection);
+
+  // Handle tool change with Seat Type panel toggle
+  const handleToolChange = (tool) => {
+    if (tool === TOOL_SEAT) {
+      setShowSeatTypePanel(prev => !prev);
+      setShowRowArcSeatTypePanel(false);
+    } else {
+      setShowSeatTypePanel(false);
+    }
+
+    // Show/toggle seat type panel for row and arc tools
+    if (tool === TOOL_ROW || tool === TOOL_ARC) {
+      const isCurrentlyActive = activeTool === tool;
+      if (isCurrentlyActive && showRowArcSeatTypePanel) {
+        // Tool is already active and panel is open, close it
+        setShowRowArcSeatTypePanel(false);
+      } else {
+        // Either different tool or panel is closed, open it
+        setShowRowArcSeatTypePanel(true);
+      }
+      setActiveTool(tool);
+    } else {
+      setActiveTool(tool);
+    }
+  };
   const hasTextSelection = selectedTextIds.length > 0;
   const hasSeatSelection = selectedSeatIds.length > 0;
   const hasShapeSelection = selectedShapeIds.length > 0;
@@ -412,7 +446,7 @@ function Editor() {
           <div className="flex h-full flex-col">
             <Toolbar
               activeTool={activeTool}
-              onToolChange={setActiveTool}
+              onToolChange={handleToolChange}
               selectedShapeType={selectedShapeType}
               onShapeTypeChange={setSelectedShapeType}
               onAlign={handleAlign}
@@ -427,12 +461,35 @@ function Editor() {
         </aside>
 
         {/* Seat Type Selector Panel */}
-        {activeTool === TOOL_SEAT && (
+        {activeTool === TOOL_SEAT && showSeatTypePanel && (
           <aside className="absolute bottom-3 left-22 top-18 z-20 w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
             <div className="h-full flex flex-col p-4">
               <SeatTypeSelector
                 selectedType={selectedSeatType}
-                onSelectType={setSelectedSeatType}
+                onSelectType={handleSeatTypeSelect}
+              />
+            </div>
+          </aside>
+        )}
+
+        {/* Row/Arc Seat Type Selector Panel */}
+        {(activeTool === TOOL_ROW || activeTool === TOOL_ARC) && showRowArcSeatTypePanel && (
+          <aside className="absolute bottom-3 left-22 top-18 z-20 w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)]">
+            <div className="h-full flex flex-col p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-[#587cb3]">
+                  {activeTool === TOOL_ROW ? 'Row Seat Type' : 'Arc Seat Type'}
+                </span>
+                <button
+                  onClick={() => setShowRowArcSeatTypePanel(false)}
+                  className="text-white/60 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <SeatTypeSelector
+                selectedType={selectedSeatType}
+                onSelectType={handleSeatTypeSelect}
               />
             </div>
           </aside>

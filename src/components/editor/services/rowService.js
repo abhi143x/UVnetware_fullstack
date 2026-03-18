@@ -5,11 +5,12 @@ import { ELEMENT_TYPES } from "../domain/elementTypes";
 export const SMART_ROW_ANGLE_TOLERANCE = 5;
 export const SMART_ROW_MIN_DISTANCE_SQUARED = 0.0001;
 
-export function generateRowSeats(rowPoints, rowLetter, rowId) {
+export function generateRowSeats(rowPoints, rowLetter, rowId, seatType) {
     const groupOptions = createSeatGroupMetadata(ELEMENT_TYPES.ROW, rowId);
 
     return rowPoints.map((point, index) => ({
         ...point,
+        seatType: seatType || 'chair',
         options: {
             row: rowLetter,
             number: index + 1,
