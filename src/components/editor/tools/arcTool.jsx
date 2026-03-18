@@ -2,21 +2,32 @@ import {
   buildArcLayoutPoints,
   DEFAULT_ARC_TOOL_SETTINGS,
 } from "../services/arcService";
+import { SEAT_TYPE_CONFIG, SEAT_TYPES } from "../constants/seatTypes";
 import { PREVIEW_SEAT_RADIUS, RADIANS_PER_DEGREE } from "../utils/mathUtils";
 
 const MIN_ARC_DRAG_DISTANCE = PREVIEW_SEAT_RADIUS;
 const MIN_ARC_COMMIT_DISTANCE = PREVIEW_SEAT_RADIUS * 0.6;
 const MAX_ARC_PREVIEW_SEAT_COUNT = 80;
 const ARC_PREVIEW_MOVE_EPSILON = 1;
+const ARC_TOOL_SPACING_PADDING = 12;
 
-function buildArcPreview(centerPoint, worldPoint) {
+function getSeatTypeDefaultWidth(seatType) {
+  return (
+    SEAT_TYPE_CONFIG[seatType]?.defaultWidth ??
+    SEAT_TYPE_CONFIG[SEAT_TYPES.CHAIR]?.defaultWidth ??
+    DEFAULT_ARC_TOOL_SETTINGS.seatSpacing
+  );
+}
+
+function buildArcPreview(centerPoint, worldPoint, seatType) {
   const deltaX = worldPoint.x - centerPoint.x;
   const deltaY = worldPoint.y - centerPoint.y;
   const pointerDistance = Math.hypot(deltaX, deltaY);
   const radius = Math.max(MIN_ARC_DRAG_DISTANCE, pointerDistance);
   const rotation = Math.atan2(deltaY, deltaX);
   const arcAngle = DEFAULT_ARC_TOOL_SETTINGS.arcAngle;
-  const seatSpacing = DEFAULT_ARC_TOOL_SETTINGS.seatSpacing;
+  const selectedSeatWidth = getSeatTypeDefaultWidth(seatType);
+  const seatSpacing = selectedSeatWidth + ARC_TOOL_SPACING_PADDING;
   const estimatedSeatCount = Math.max(
     2,
     Math.min(
@@ -53,7 +64,7 @@ export class ArcTool {
       endPoint: worldPoint,
       previewPoints: [],
       arcConfig: null,
-      seatType: context.selectedSeatType || 'chair',
+      seatType: context.selectedSeatType || "chair",
     };
   }
 
@@ -69,7 +80,11 @@ export class ArcTool {
       return session;
     }
 
-    const preview = buildArcPreview(session.centerPoint, worldPoint);
+    const preview = buildArcPreview(
+      session.centerPoint,
+      worldPoint,
+      context.selectedSeatType || session.seatType || SEAT_TYPES.CHAIR,
+    );
 
     return {
       type: "arc_preview",
@@ -77,7 +92,7 @@ export class ArcTool {
       endPoint: worldPoint,
       previewPoints: preview.previewPoints,
       arcConfig: preview.arcConfig,
-      seatType: context.selectedSeatType || 'chair', // Always use current selection
+      seatType: context.selectedSeatType || "chair", // Always use current selection
     };
   }
 
@@ -90,7 +105,11 @@ export class ArcTool {
         session.endPoint.y - session.centerPoint.y,
       ) >= MIN_ARC_COMMIT_DISTANCE
     ) {
-      this.commitArc?.(session.arcConfig, session.centerPoint, context.selectedSeatType || 'chair'); // Always use current selection
+      this.commitArc?.(
+        session.arcConfig,
+        session.centerPoint,
+        context.selectedSeatType || "chair",
+      ); // Always use current selection
     }
     return null;
   }
