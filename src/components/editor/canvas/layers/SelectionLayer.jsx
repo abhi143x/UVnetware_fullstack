@@ -10,6 +10,7 @@ import { getRowLetter, generateSeatLabel } from "../../utils/seatNumbering";
 
 const SelectionLayer = React.memo(function SelectionLayer({
   activeTool,
+  selectionCenter,
   rowPreviewPoints,
   arcPreviewPoints,
   polygonPreview,
@@ -149,6 +150,17 @@ const SelectionLayer = React.memo(function SelectionLayer({
               strokeWidth={1.5}
             />
           ))}
+        </g>
+      )}
+
+      {selectionCenter && (
+        <g
+          transform={`translate(${selectionCenter.x}, ${selectionCenter.y - 15})`}
+          style={{ cursor: "grab" }}
+        >
+          <line x1="0" y1="0" x2="0" y2="20" stroke="#587cb3" strokeWidth="2" strokeDasharray="3,3" />
+          <circle cx="0" cy="0" r="10" fill="#0e1319" stroke="#587cb3" strokeWidth="2" />
+          <path d="M-4 -2 A 4.5 4.5 0 1 1 -2 4 L-2 2 M-2 4 L-4 4" fill="none" stroke="#d6e5fb" strokeWidth="1.5" strokeLinecap="round" />
         </g>
       )}
     </>

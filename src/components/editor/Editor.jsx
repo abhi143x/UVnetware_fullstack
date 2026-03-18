@@ -104,19 +104,19 @@ function Editor() {
     : [];
   const selectedArcGroupId =
     hasSeatSelection &&
-    selectedSeats.every(
-      (seat) =>
-        seat.groupType === ELEMENT_TYPES.ARC &&
-        seat.groupId === selectedSeats[0]?.groupId,
-    )
+      selectedSeats.every(
+        (seat) =>
+          seat.groupType === ELEMENT_TYPES.ARC &&
+          seat.groupId === selectedSeats[0]?.groupId,
+      )
       ? selectedSeats[0]?.groupId
       : null;
   const selectedArcGroupSeats = selectedArcGroupId
     ? seats.filter(
-        (seat) =>
-          seat.groupType === ELEMENT_TYPES.ARC &&
-          seat.groupId === selectedArcGroupId,
-      )
+      (seat) =>
+        seat.groupType === ELEMENT_TYPES.ARC &&
+        seat.groupId === selectedArcGroupId,
+    )
     : [];
   const isCompleteArcSelection =
     Boolean(selectedArcGroupId) &&
@@ -328,16 +328,16 @@ function Editor() {
           const updatedLayouts = layouts.map((layout) =>
             layout.id === currentLayoutId
               ? {
-                  ...layout,
-                  name: layoutName,
-                  seats,
-                  texts,
-                  shapes,
-                  categories,
-                  nextRowIndex,
-                  customSpacing,
-                  updatedAt: new Date().toISOString(),
-                }
+                ...layout,
+                name: layoutName,
+                seats,
+                texts,
+                shapes,
+                categories,
+                nextRowIndex,
+                customSpacing,
+                updatedAt: new Date().toISOString(),
+              }
               : layout,
           );
           localStorage.setItem(
@@ -410,9 +410,8 @@ function Editor() {
       }}
     >
       <div
-        className={`relative flex-1 ${
-          isOverCapacity ? "min-h-240 min-w-400" : "min-h-full min-w-full"
-        }`}
+        className={`relative flex-1 ${isOverCapacity ? "min-h-240 min-w-400" : "min-h-full min-w-full"
+          }`}
       >
         <EditorCanvas
           centerOnSeatsRef={centerOnSeatsRef}
@@ -459,11 +458,10 @@ function Editor() {
               <button
                 type="button"
                 onClick={() => setShowTemplates((v) => !v)}
-                className={`rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all ${
-                  showTemplates
-                    ? "border-[#587cb3]/45 bg-[#587cb3]/20 text-[#d6e5fb]"
-                    : "border-white/15 bg-[#11161c]/75 text-[#9fb0c8] hover:border-white/25"
-                }`}
+                className={`rounded-md border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide transition-all ${showTemplates
+                  ? "border-[#587cb3]/45 bg-[#587cb3]/20 text-[#d6e5fb]"
+                  : "border-white/15 bg-[#11161c]/75 text-[#9fb0c8] hover:border-white/25"
+                  }`}
               >
                 Templates
               </button>
@@ -474,11 +472,10 @@ function Editor() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${
-                    saveStatus === "saved"
-                      ? "border-green-500/50 bg-green-600/20 text-green-300"
-                      : "border-[#587cb3]/35 bg-[#587cb3]/15 text-[#c9d6ea] hover:bg-[#587cb3]/25"
-                  }`}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-all ${saveStatus === "saved"
+                    ? "border-green-500/50 bg-green-600/20 text-green-300"
+                    : "border-[#587cb3]/35 bg-[#587cb3]/15 text-[#c9d6ea] hover:bg-[#587cb3]/25"
+                    }`}
                 >
                   {saveStatus === "saved" ? "Saved" : "Save Layout"}
                 </button>
@@ -495,8 +492,11 @@ function Editor() {
         </div>
 
         {/* Left tools in a single vertical line */}
-        <aside className="absolute bottom-3 left-3 top-18 z-20 w-16 rounded-xl border border-white/10 bg-[#0a1018]/88 p-2 backdrop-blur-md shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
-          <div className="flex h-full flex-col">
+        <aside
+          data-lenis-prevent
+          className="absolute left-3 top-18 z-20 w-16 max-h-[calc(100%-5.5rem)] overflow-y-auto rounded-xl border border-white/10 bg-[#0a1018]/88 p-2 backdrop-blur-md shadow-[0_12px_28px_rgba(0,0,0,0.38)] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex flex-col">
             <Toolbar
               activeTool={activeTool}
               onToolChange={handleToolChange}
@@ -557,11 +557,10 @@ function Editor() {
 
         {/* Templates drawer */}
         <aside
-          className={`absolute bottom-3 left-22 top-18 z-20 w-[min(320px,calc(100vw-7rem))] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-all duration-200 ${
-            showTemplates
-              ? "translate-x-0 opacity-100 pointer-events-auto"
-              : "-translate-x-6 opacity-0 pointer-events-none"
-          }`}
+          className={`absolute bottom-3 left-22 top-18 z-20 w-[min(320px,calc(100vw-7rem))] overflow-hidden rounded-xl border border-white/10 bg-[#0d141e]/96 backdrop-blur-md shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition-all duration-200 ${showTemplates
+            ? "translate-x-0 opacity-100 pointer-events-auto"
+            : "-translate-x-6 opacity-0 pointer-events-none"
+            }`}
         >
           <TemplatesPanel onTemplateLoad={handleTemplateLoad} />
         </aside>
@@ -594,11 +593,10 @@ function Editor() {
 
           return (
             <div
-              className={`absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500 ease-out transform ${
-                showFooter
-                  ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-4"
-              }`}
+              className={`absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-500 ease-out transform ${showFooter
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-4"
+                }`}
             >
               <div className="flex items-center gap-4 rounded-full border border-white/10 bg-[#0a1018]/90 px-4 py-2 backdrop-blur-md shadow-[0_12px_35px_rgba(0,0,0,0.45)]">
                 {/* Name & Description */}

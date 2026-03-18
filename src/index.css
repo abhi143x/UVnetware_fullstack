@@ -61,9 +61,11 @@ button {
   0% {
     transform: translateY(0px);
   }
+
   50% {
     transform: translateY(-12px);
   }
+
   100% {
     transform: translateY(0px);
   }
@@ -71,4 +73,21 @@ button {
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }

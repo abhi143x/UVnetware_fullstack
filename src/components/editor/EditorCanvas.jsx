@@ -15,7 +15,7 @@ import { useRenderedElements } from "./hooks/useRenderedElements";
 import { useToolHandler } from "./hooks/useToolHandler";
 import { useViewport } from "./hooks/useViewport";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ERASER, TOOL_TEXT } from "./constants/tools";
+import { TOOL_ERASER, TOOL_TEXT, TOOL_ROTATE } from "./constants/tools";
 import ArcFloatingEditor from "./ArcFloatingEditor";
 
 function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
@@ -168,7 +168,7 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   useEffect(() => {
     if (!zoomControlRef) return;
     zoomControlRef.current = {
-      zoomIn:  () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale * 1.2),
+      zoomIn: () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale * 1.2),
       zoomOut: () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale / 1.2),
       zoomPercent: Math.round(camera.scale * 100),
     };
@@ -238,6 +238,24 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   );
 
   // Context for tool handlers - create early so callbacks can use it
+  const selectionCenter = useMemo(() => {
+    if (activeTool !== TOOL_ROTATE) return null;
+    const s1 = seats.filter(s => selectedSeatIds.includes(s.id));
+    const t1 = texts.filter(t => selectedTextIds.includes(t.id));
+    const sh1 = shapes.filter(shape => selectedShapeIds.includes(shape.id));
+    const all = [...s1, ...t1, ...sh1];
+    if (all.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    all.forEach(item => {
+      const padding = item.radius || (item.width ? item.width / 2 : 20);
+      minX = Math.min(minX, item.x - padding);
+      minY = Math.min(minY, item.y - padding);
+      maxX = Math.max(maxX, item.x + padding);
+      maxY = Math.max(maxY, item.y + padding);
+    });
+    return { x: (minX + maxX) / 2, y: minY - 30 };
+  }, [activeTool, seats, texts, shapes, selectedSeatIds, selectedTextIds, selectedShapeIds]);
+
   const context = useMemo(() => ({
     activeTool,
     seats,
@@ -369,6 +387,7 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
       <CanvasStage
         viewport={viewport}
         camera={camera}
+        selectionCenter={selectionCenter}
         renderedShapes={renderedShapes}
         renderedSeats={renderedSeats}
         renderedTexts={renderedTexts}

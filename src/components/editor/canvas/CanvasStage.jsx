@@ -12,6 +12,7 @@ const CanvasStage = ({
   renderedSeats,
   renderedTexts,
   activeTool,
+  selectionCenter,
   rowPreviewPoints,
   arcPreviewPoints,
   polygonPreview,
@@ -36,6 +37,7 @@ const CanvasStage = ({
         <TextLayer renderedTexts={renderedTexts} />
         <SelectionLayer
           activeTool={activeTool}
+          selectionCenter={selectionCenter}
           rowPreviewPoints={rowPreviewPoints}
           arcPreviewPoints={arcPreviewPoints}
           polygonPreview={polygonPreview}
