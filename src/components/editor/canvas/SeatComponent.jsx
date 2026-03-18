@@ -36,8 +36,12 @@ const SeatSVG = React.memo(
         return categoryColor;
       }
 
+      if (seat.fill && status === "available") {
+        return seat.fill;
+      }
+
       // Fallback to status color or default
-      return STATUS_COLORS[status] || seat.fill || STATUS_COLORS.available;
+      return STATUS_COLORS[status] || STATUS_COLORS.available;
     };
 
     const fillColor = getFillColor();
@@ -80,8 +84,9 @@ const SeatSVG = React.memo(
       if (isSelected) {
         return "#1f2937";
       }
-      if (categoryColor && status === "available") {
-        const hex = categoryColor.replace("#", "");
+      const baseAvailableColor = categoryColor || seat.fill;
+      if (baseAvailableColor && status === "available") {
+        const hex = baseAvailableColor.replace("#", "");
         const r = parseInt(hex.substr(0, 2), 16);
         const g = parseInt(hex.substr(2, 2), 16);
         const b = parseInt(hex.substr(4, 2), 16);

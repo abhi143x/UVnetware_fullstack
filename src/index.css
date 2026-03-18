@@ -69,6 +69,142 @@ button {
   }
 }
 
+@keyframes morphBlob {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    border-radius: 42% 58% 33% 67% / 41% 36% 64% 59%;
+  }
+  33% {
+    transform: translate3d(24px, -20px, 0) scale(1.08);
+    border-radius: 65% 35% 57% 43% / 51% 62% 38% 49%;
+  }
+  66% {
+    transform: translate3d(-18px, 18px, 0) scale(0.94);
+    border-radius: 37% 63% 48% 52% / 62% 40% 60% 38%;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    border-radius: 42% 58% 33% 67% / 41% 36% 64% 59%;
+  }
+}
+
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+.morph-blob {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(36px);
+  opacity: 0.22;
+  animation: morphBlob 16s ease-in-out infinite;
+  will-change: transform, border-radius;
+}
+
+.morph-blob-fast {
+  animation-duration: 12s;
+}
+
+.morph-blob-slow {
+  animation-duration: 22s;
+}
+
+.morph-blob-delay {
+  animation-delay: 2.8s;
+}
+
+.micro-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms ease,
+    box-shadow 220ms ease,
+    filter 220ms ease;
+}
+
+.micro-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.micro-btn:active {
+  transform: translateY(0);
+}
+
+.micro-btn:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.micro-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 70%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transition: left 520ms ease;
+}
+
+.micro-btn:hover::after {
+  left: 140%;
+}
+
+.micro-card {
+  transition:
+    transform 220ms ease,
+    box-shadow 260ms ease,
+    border-color 260ms ease;
+}
+
+.micro-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.32);
+}
+
+.micro-media {
+  transition:
+    transform 240ms ease,
+    box-shadow 260ms ease,
+    border-color 260ms ease;
+}
+
+.micro-media:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+
+.micro-media img,
+.micro-media iframe,
+.micro-media video {
+  transition: transform 360ms ease;
+}
+
+.micro-media:hover img,
+.micro-media:hover iframe,
+.micro-media:hover video {
+  transform: scale(1.015);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morph-blob,
+  .morph-blob-fast,
+  .morph-blob-slow,
+  .morph-blob-delay,
+  .micro-btn,
+  .micro-card,
+  .micro-media,
+  .micro-media img,
+  .micro-media iframe,
+  .micro-media video,
+  .micro-btn::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
