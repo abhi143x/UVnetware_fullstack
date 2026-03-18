@@ -43,6 +43,9 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
   const categories = useEditorStore((state) => state.categories);
   const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
+  const snapEnabled = useEditorStore((state) => state.snapEnabled);
+  const gridSize = useEditorStore((state) => state.gridSize);
+  const toggleSnap = useEditorStore((state) => state.toggleSnap);
 
   // Store actions
   const handleWorldClick = useEditorStore((state) => state.handleWorldClick);
@@ -229,6 +232,7 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
       onToolChange: setActiveTool,
       onSelectAll: selectAll,
       onFitView: () => centerOnSeats(seats),
+      onToggleSnap: toggleSnap,
     },
   );
 
@@ -304,6 +308,8 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
     onToolMouseMove: handleEditorMouseMove,
     onToolMouseUp: handleEditorMouseUp,
     onToolClick: (e, wp) => handleClick(e, wp, context),
+    snapEnabled,
+    gridSize,
   });
 
   const handleContainerMouseLeave = useCallback(
@@ -370,6 +376,8 @@ function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
         polygonPreview={polygonPreview}
         marqueeRect={marqueeRect}
         nextRowIndex={nextRowIndex}
+        snapEnabled={snapEnabled}
+        gridSize={gridSize}
       />
       <ArcFloatingEditor camera={camera} viewport={viewport} />
       {/* Minimap in bottom-right */}

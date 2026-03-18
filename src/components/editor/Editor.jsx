@@ -50,6 +50,8 @@ function Editor() {
   const seatCount = useEditorStore((state) => state.seats.length);
 
   const clearLayout = useEditorStore((state) => state.clearLayout);
+  const snapEnabled = useEditorStore((state) => state.snapEnabled);
+  const toggleSnap = useEditorStore((state) => state.toggleSnap);
   const alignSelection = useEditorStore((state) => state.alignSelection);
   const hasTextSelection = selectedTextIds.length > 0;
   const hasSeatSelection = selectedSeatIds.length > 0;
@@ -414,6 +416,8 @@ function Editor() {
               selectedShapeType={selectedShapeType}
               onShapeTypeChange={setSelectedShapeType}
               onAlign={handleAlign}
+              snapEnabled={snapEnabled}
+              onToggleSnap={toggleSnap}
               compact
             />
             <div className="mt-2 border-t border-white/10 pt-2">

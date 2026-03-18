@@ -3,7 +3,7 @@ import { useEffect } from "react";
 export function useKeyboardShortcuts(
   onDelete,
   onEscape,
-  { onCopy, onPaste, onCut, onUndo, onRedo, onToolChange, onSelectAll, onFitView } = {},
+  { onCopy, onPaste, onCut, onUndo, onRedo, onToolChange, onSelectAll, onFitView, onToggleSnap } = {},
 ) {
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -32,6 +32,13 @@ export function useKeyboardShortcuts(
       if (mod && key === "a") {
         event.preventDefault();
         onSelectAll?.();
+        return;
+      }
+
+      // G — toggle snap grid (no modifier)
+      if (!mod && key === "g") {
+        event.preventDefault();
+        onToggleSnap?.();
         return;
       }
 

@@ -52,6 +52,8 @@ export function clearStorageCache() {
 export function createCanvasSlice(set, get, { trackedSet, persisted }) {
   return {
     // State
+    snapEnabled: true,
+    gridSize: 20,
     templateVersion: 0,
     lastSavedAt:
       persisted.seats.length > 0 || persisted.texts.length > 0
@@ -59,6 +61,8 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
         : null,
 
     // Actions
+    toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+    
     loadTemplate: (templateData) =>
       // Loading a predefined venue should not create an undo entry.
       set((state) => ({
