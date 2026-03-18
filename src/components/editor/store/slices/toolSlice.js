@@ -1,15 +1,18 @@
 // ─── Tool Slice ───────────────────────────────────────────────────────────────
 // Manages active tool selection and transient text tool state.
 
-import { TOOL_SEAT } from "../../constants/tools";
+import { TOOL_SELECT, TOOL_SEAT } from "../../constants/tools";
+import { SEAT_TYPES } from "../../constants/seatTypes";
 
 export function createToolSlice(set) {
   return {
     // State
-    activeTool: TOOL_SEAT,
+    activeTool: TOOL_SELECT,
     textPrompt: null,
     textDraft: "",
     selectedShapeType: "rectangle",
+    selectedSeatType: SEAT_TYPES.CHAIR,
+    arcGeneratorCenter: { x: 0, y: 0 },
 
     // Actions
     setActiveTool: (tool) =>
@@ -20,12 +23,43 @@ export function createToolSlice(set) {
         return state;
       }),
 
+    setSelectedSeatType: (seatType) =>
+      set((state) => {
+        if (state.selectedSeatType !== seatType) {
+          return { selectedSeatType: seatType };
+        }
+        return state;
+      }),
+
     setSelectedShapeType: (shapeType) =>
       set((state) => {
         if (state.selectedShapeType !== shapeType) {
           return { selectedShapeType: shapeType };
         }
         return state;
+      }),
+
+    setArcGeneratorCenter: (point) =>
+      set((state) => {
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+          return state;
+        }
+
+        const currentPoint = state.arcGeneratorCenter;
+        if (
+          currentPoint &&
+          currentPoint.x === point.x &&
+          currentPoint.y === point.y
+        ) {
+          return state;
+        }
+
+        return {
+          arcGeneratorCenter: {
+            x: point.x,
+            y: point.y,
+          },
+        };
       }),
   };
 }

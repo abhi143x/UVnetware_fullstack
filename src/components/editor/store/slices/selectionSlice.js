@@ -1,7 +1,7 @@
 // ─── Selection Slice ──────────────────────────────────────────────────────────
 // Manages seat/text selection, grouped seat selection, marquee, and copy/paste.
 
-import { TOOL_SELECT } from "../../constants/tools";
+import { TOOL_SELECT, TOOL_TEXT } from "../../constants/tools";
 import {
   DEFAULT_SEAT_RADIUS,
   createId,
@@ -100,7 +100,7 @@ export function createSelectionSlice(set, get, { trackedSet }) {
 
     selectText: (textId, shiftKey) =>
       set((state) => {
-        if (state.activeTool !== TOOL_SELECT) return state;
+        if (state.activeTool !== TOOL_SELECT && state.activeTool !== TOOL_TEXT) return state;
 
         if (!shiftKey) {
           return { selectedTextIds: [textId] };
@@ -267,12 +267,20 @@ export function createSelectionSlice(set, get, { trackedSet }) {
             s,
             pastedGroupIdMap,
           );
+          const nextArcCenterX = Number.isFinite(s.arcCenterX)
+            ? s.arcCenterX + offset
+            : s.arcCenterX;
+          const nextArcCenterY = Number.isFinite(s.arcCenterY)
+            ? s.arcCenterY + offset
+            : s.arcCenterY;
           return {
             ...s,
             ...groupMetadata,
             id: newId,
             x: clipboard.cx + s.x + offset,
             y: clipboard.cy + s.y + offset,
+            arcCenterX: nextArcCenterX,
+            arcCenterY: nextArcCenterY,
             number: newNumber,
             label: generateSeatLabel(row, newNumber),
           };
@@ -294,11 +302,19 @@ export function createSelectionSlice(set, get, { trackedSet }) {
         const pastedShapes = (clipboard.shapes || []).map((shape) => {
           const newId = createId(ELEMENT_TYPES.SHAPE);
           newShapeIds.push(newId);
+          const dx = clipboard.cx + shape.x + offset - shape.x;
+          const dy = clipboard.cy + shape.y + offset - shape.y;
+          // BUG-15: offset polygon absolute points so they move with the shape
+          const offsetPoints =
+            Array.isArray(shape.points)
+              ? shape.points.map((pt) => ({ ...pt, x: pt.x + dx, y: pt.y + dy }))
+              : shape.points;
           return {
             ...shape,
             id: newId,
             x: clipboard.cx + shape.x + offset,
             y: clipboard.cy + shape.y + offset,
+            ...(offsetPoints !== shape.points && { points: offsetPoints }),
           };
         });
 
@@ -325,6 +341,14 @@ export function createSelectionSlice(set, get, { trackedSet }) {
           activeTool: TOOL_SELECT,
         };
       }),
+    selectAll: () =>
+      set((state) => ({
+        selectedSeatIds:  state.seats.map((s) => s.id),
+        selectedTextIds:  state.texts.map((t) => t.id),
+        selectedShapeIds: state.shapes.map((s) => s.id),
+        activeTool: TOOL_SELECT,
+      })),
+
     cutSelection: () => {
       get().copySelection();
       get().deleteSelection();

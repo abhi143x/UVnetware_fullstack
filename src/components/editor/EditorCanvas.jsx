@@ -15,9 +15,10 @@ import { useRenderedElements } from "./hooks/useRenderedElements";
 import { useToolHandler } from "./hooks/useToolHandler";
 import { useViewport } from "./hooks/useViewport";
 import { useEditorStore } from "./store/editorStore";
-import { TOOL_ERASER } from "./constants/tools";
+import { TOOL_ERASER, TOOL_TEXT } from "./constants/tools";
+import ArcFloatingEditor from "./ArcFloatingEditor";
 
-function EditorCanvas({ centerOnSeatsRef }) {
+function EditorCanvas({ centerOnSeatsRef, zoomControlRef }) {
   const containerRef = useRef(null);
   const [hoveredSeatId, setHoveredSeatId] = useState(null);
   const [hoveredTextId, setHoveredTextId] = useState(null);
@@ -32,6 +33,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
 
   // Store state
   const activeTool = useEditorStore((state) => state.activeTool);
+  const setActiveTool = useEditorStore((state) => state.setActiveTool);
   const seats = useEditorStore((state) => state.seats);
   const texts = useEditorStore((state) => state.texts);
   const shapes = useEditorStore((state) => state.shapes);
@@ -39,8 +41,12 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const selectedTextIds = useEditorStore((state) => state.selectedTextIds);
   const selectedShapeIds = useEditorStore((state) => state.selectedShapeIds);
   const selectedShapeType = useEditorStore((state) => state.selectedShapeType);
+  const selectedSeatType = useEditorStore((state) => state.selectedSeatType);
   const categories = useEditorStore((state) => state.categories);
   const nextRowIndex = useEditorStore((state) => state.nextRowIndex);
+  const snapEnabled = useEditorStore((state) => state.snapEnabled);
+  const gridSize = useEditorStore((state) => state.gridSize);
+  const toggleSnap = useEditorStore((state) => state.toggleSnap);
 
   // Store actions
   const handleWorldClick = useEditorStore((state) => state.handleWorldClick);
@@ -54,6 +60,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
   const moveTextsPreview = useEditorStore((state) => state.moveTextsPreview);
   const moveShapes = useEditorStore((state) => state.moveShapes);
   const moveShapesPreview = useEditorStore((state) => state.moveShapesPreview);
+  const resizeSeats = useEditorStore((state) => state.resizeSeats);
   const updateShapePreview = useEditorStore(
     (state) => state.updateShapePreview,
   );
@@ -72,6 +79,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
     (state) => state.pushHistoryCheckpoint,
   );
   const clearSelection = useEditorStore((state) => state.clearSelection);
+  const selectAll = useEditorStore((state) => state.selectAll);
   const copySelection = useEditorStore((state) => state.copySelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
   const deleteSelection = useEditorStore((state) => state.deleteSelection);
@@ -92,6 +100,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       moveTextsPreview,
       moveShapes,
       moveShapesPreview,
+      resizeSeats,
       updateShapePreview,
       addPolygonShape,
       marqueeSelect,
@@ -119,6 +128,7 @@ function EditorCanvas({ centerOnSeatsRef }) {
       moveTextsPreview,
       moveShapes,
       moveShapesPreview,
+      resizeSeats,
       updateShapePreview,
       addPolygonShape,
       marqueeSelect,
@@ -154,6 +164,16 @@ function EditorCanvas({ centerOnSeatsRef }) {
     }
   }, [centerOnSeats, centerOnSeatsRef]);
 
+  // U-03: Expose zoom controls + current scale so Editor can show zoom UI
+  useEffect(() => {
+    if (!zoomControlRef) return;
+    zoomControlRef.current = {
+      zoomIn:  () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale * 1.2),
+      zoomOut: () => zoomToPoint({ x: viewport.width / 2, y: viewport.height / 2 }, camera.scale / 1.2),
+      zoomPercent: Math.round(camera.scale * 100),
+    };
+  }, [camera.scale, viewport, zoomToPoint, zoomControlRef]);
+
   // Auto-center on template load (when templateVersion changes)
   const templateVersion = useEditorStore((state) => state.templateVersion);
   useEffect(() => {
@@ -170,7 +190,10 @@ function EditorCanvas({ centerOnSeatsRef }) {
     handleMouseMove,
     handleMouseUp,
     handleClick,
+    handleContextMenu,
+    handleKeyDown,
   } = useToolHandler(storeActions);
+
   const { renderedShapes, renderedSeats, renderedTexts } = useRenderedElements(
     seats,
     texts,
@@ -183,26 +206,39 @@ function EditorCanvas({ centerOnSeatsRef }) {
     activeTool === TOOL_ERASER ? hoveredTextId : null,
     activeTool === TOOL_ERASER ? hoveredShapeId : null,
     categories,
+    camera,
+    viewport,
   );
   const cursor = useCursor(activeTool, false, false);
-  const { marqueeRect, rowPreviewPoints, arcPreviewPoints, polygonPreview } =
-    usePreviewElements(toolSession, activeTool);
+  const {
+    marqueeRect,
+    rowPreviewPoints,
+    arcPreviewPoints,
+    polygonPreview,
+  } = usePreviewElements(
+    toolSession,
+    activeTool,
+  );
 
   // Keyboard shortcuts
   useKeyboardShortcuts(
     deleteSelection,
-    () => {}, // escape handler
+    () => { }, // escape handler
     {
       onCopy: copySelection,
       onPaste: pasteClipboard,
       onCut: cutSelection,
       onUndo: undo,
       onRedo: redo,
+      onToolChange: setActiveTool,
+      onSelectAll: selectAll,
+      onFitView: () => centerOnSeats(seats),
+      onToggleSnap: toggleSnap,
     },
   );
 
-  // Context for tool handlers
-  const context = {
+  // Context for tool handlers - create early so callbacks can use it
+  const context = useMemo(() => ({
     activeTool,
     seats,
     texts,
@@ -211,10 +247,51 @@ function EditorCanvas({ centerOnSeatsRef }) {
     selectedTextIds,
     selectedShapeIds,
     selectedShapeType,
+    selectedSeatType,
     seatsById: new Map(seats.map((seat) => [seat.id, seat])),
     textsById: new Map(texts.map((text) => [text.id, text])),
     shapesById: new Map(shapes.map((shape) => [shape.id, shape])),
-  };
+  }), [activeTool, seats, texts, shapes, selectedSeatIds, selectedTextIds, selectedShapeIds, selectedShapeType, selectedSeatType]);
+
+  // Custom mouse handlers that detect resize
+  const handleEditorMouseDown = useCallback((e, wp) => {
+    handleMouseDown(e, wp, context);
+  }, [handleMouseDown, context]);
+
+  const handleEditorMouseMove = useCallback((e, wp) => {
+    handleMouseMove(e, wp, context);
+  }, [handleMouseMove, context]);
+
+  const handleEditorClick = useCallback((e, wp) => {
+    handleMouseDown(e, wp, context);
+  }, [handleMouseDown, context]);
+
+  const handleEditorMouseUp = useCallback((e, wp) => {
+    handleMouseUp(e, wp, context);
+  }, [handleMouseUp, context]);
+
+  const handleToolKeyDown = useCallback(
+    (event) => handleKeyDown(event, context),
+    [handleKeyDown, context],
+  );
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts(
+    (event) => {
+      const handledByTool = handleToolKeyDown(event);
+      if (handledByTool) return true;
+      deleteSelection();
+      return true;
+    },
+    (event) => handleToolKeyDown(event),
+    {
+      onCopy: copySelection,
+      onPaste: pasteClipboard,
+      onCut: cutSelection,
+      onUndo: undo,
+      onRedo: redo,
+    },
+  );
 
   const {
     handleMouseDown: handleStageMouseDown,
@@ -229,10 +306,12 @@ function EditorCanvas({ centerOnSeatsRef }) {
     getWorldPointFromStage,
     panCamera,
     zoomToPoint,
-    onToolMouseDown: (e, wp) => handleMouseDown(e, wp, context),
-    onToolMouseMove: (e, wp) => handleMouseMove(e, wp, context),
-    onToolMouseUp: (e, wp) => handleMouseUp(e, wp, context),
+    onToolMouseDown: handleEditorMouseDown,
+    onToolMouseMove: handleEditorMouseMove,
+    onToolMouseUp: handleEditorMouseUp,
     onToolClick: (e, wp) => handleClick(e, wp, context),
+    snapEnabled,
+    gridSize,
   });
 
   const handleContainerMouseLeave = useCallback(
@@ -253,18 +332,39 @@ function EditorCanvas({ centerOnSeatsRef }) {
         : cursor === "text"
           ? "text"
           : "default");
+  const isArcEditorTarget = (target) =>
+    target instanceof Element && Boolean(target.closest("[data-arc-editor='true']"));
 
   return (
     <section
       ref={containerRef}
       className="h-full w-full bg-[#0e1319] select-none relative"
       style={{ cursor: resolvedCursor }}
-      onMouseDown={handleStageMouseDown}
+      onMouseDown={(event) => {
+        if (isArcEditorTarget(event.target)) return;
+        handleStageMouseDown(event);
+      }}
       onMouseMove={handleStageMouseMove}
-      onMouseUp={handleStageMouseUp}
+      onMouseUp={(event) => {
+        if (isArcEditorTarget(event.target)) return;
+        handleStageMouseUp(event);
+      }}
       onMouseLeave={handleContainerMouseLeave}
-      onClick={handleStageClick}
-      onContextMenu={(e) => e.preventDefault()}
+      onClick={(e) => {
+        if (isArcEditorTarget(e.target)) return;
+        if (e.target.closest("[data-type='text']")) return;
+        // Allow canvas clicks for text tool to create new text
+        handleStageClick(e);
+      }}
+      onContextMenu={(event) => {
+        const worldPoint = getWorldPointFromStage(event.clientX, event.clientY);
+        const handledByTool = worldPoint
+          ? handleContextMenu(event, worldPoint, context)
+          : false;
+        if (!handledByTool) {
+          event.preventDefault();
+        }
+      }}
     >
       <CanvasStage
         viewport={viewport}
@@ -278,7 +378,10 @@ function EditorCanvas({ centerOnSeatsRef }) {
         polygonPreview={polygonPreview}
         marqueeRect={marqueeRect}
         nextRowIndex={nextRowIndex}
+        snapEnabled={snapEnabled}
+        gridSize={gridSize}
       />
+      <ArcFloatingEditor camera={camera} viewport={viewport} />
       {/* Minimap in bottom-right */}
       <Minimap
         seats={seats}

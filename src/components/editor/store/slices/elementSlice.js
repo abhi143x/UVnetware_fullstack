@@ -19,6 +19,7 @@ import { getRowLetter } from "../../utils/seatNumbering";
 import {
   DEFAULT_SEAT_RADIUS,
   createId,
+  createSeatGroupMetadata,
   generateSeat,
 } from "../../services/seatService";
 import {
@@ -32,19 +33,474 @@ import {
   deriveNextRowIndexFromSeats,
 } from "../../services/layoutService";
 import { generateRowSeats } from "../../services/rowService";
-import { generateArcSeats } from "../../services/arcService";
+import {
+  buildArcLayoutPoints,
+  buildArcSeatPlacements,
+  calculateArcAngleFromSpacing,
+  calculateArcSeatSpacing,
+  hasArcLayoutMetadata,
+  normalizeArcRadius,
+  normalizeArcSeatCount,
+  resolveArcLayoutConfig,
+} from "../../services/arcService";
 import { ELEMENT_TYPES } from "../../domain/elementTypes";
 import {
   createPolygonShape,
   createShape,
   SHAPE_TYPES,
 } from "../../services/shapeService";
+import { SEAT_TYPES, SEAT_TYPE_CONFIG } from "../../constants/seatTypes";
 
 const DEFAULT_CATEGORIES = [
   { id: "vip", name: "VIP", color: "#ffd700", price: null },
   { id: "standard", name: "Standard", color: "#5fa7ff", price: null },
   { id: "balcony", name: "Balcony", color: "#9b59b6", price: null },
 ];
+const ARC_AUTO_PLACEMENT_VERTICAL_SPACING = 80;
+const ARC_AUTO_PLACEMENT_Y_STEP = 20;
+const ARC_AUTO_PLACEMENT_MAX_ATTEMPTS = 400;
+
+function hasArcPlacementCollision(arcPlacements, collisionIndex, maxSeatRadius) {
+  const candidateCollisionIndex = new Map();
+
+  for (const placement of arcPlacements) {
+    if (
+      isOverlappingWithCollisionIndex(
+        placement.x,
+        placement.y,
+        DEFAULT_SEAT_RADIUS,
+        collisionIndex,
+        COLLISION_INDEX_CELL_SIZE,
+        maxSeatRadius,
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      isOverlappingWithCollisionIndex(
+        placement.x,
+        placement.y,
+        DEFAULT_SEAT_RADIUS,
+        candidateCollisionIndex,
+        COLLISION_INDEX_CELL_SIZE,
+        DEFAULT_SEAT_RADIUS,
+      )
+    ) {
+      return true;
+    }
+
+    addSeatToCollisionIndex(
+      candidateCollisionIndex,
+      {
+        x: placement.x,
+        y: placement.y,
+        radius: DEFAULT_SEAT_RADIUS,
+      },
+      COLLISION_INDEX_CELL_SIZE,
+    );
+  }
+
+  return false;
+}
+
+function resolveArcPlacementCenter(existingSeats, fallbackCenter, radius) {
+  if (!fallbackCenter || !Number.isFinite(fallbackCenter.x)) {
+    return null;
+  }
+
+  const maxSeatY = existingSeats.reduce(
+    (currentMaxY, seat) => Math.max(currentMaxY, seat.y),
+    Number.NEGATIVE_INFINITY,
+  );
+
+  return {
+    x: fallbackCenter.x,
+    y: Number.isFinite(maxSeatY)
+      ? maxSeatY + ARC_AUTO_PLACEMENT_VERTICAL_SPACING + radius
+      : fallbackCenter.y,
+  };
+}
+
+function findAvailableArcPlacements(
+  existingSeats,
+  arcConfig,
+  baseCenter,
+  rowLetter,
+  arcId,
+  seatType,
+) {
+  if (
+    !baseCenter ||
+    !Number.isFinite(baseCenter.x) ||
+    !Number.isFinite(baseCenter.y)
+  ) {
+    return null;
+  }
+
+  const resolvedArcLayout = resolveArcLayoutConfig(arcConfig);
+  const collisionIndex = buildCollisionIndex(
+    existingSeats,
+    COLLISION_INDEX_CELL_SIZE,
+  );
+  const maxSeatRadius = getMaxSeatRadius(existingSeats);
+
+  for (
+    let attemptIndex = 0;
+    attemptIndex < ARC_AUTO_PLACEMENT_MAX_ATTEMPTS;
+    attemptIndex += 1
+  ) {
+    const centerPoint = {
+      x: baseCenter.x,
+      y: baseCenter.y + attemptIndex * ARC_AUTO_PLACEMENT_Y_STEP,
+    };
+    const arcPlacements = buildArcSeatPlacements({
+      centerPoint,
+      rowLetter,
+      arcId,
+      seatType,
+      ...resolvedArcLayout,
+    });
+
+    if (
+      !hasArcPlacementCollision(arcPlacements, collisionIndex, maxSeatRadius)
+    ) {
+      return arcPlacements;
+    }
+  }
+
+  return null;
+}
+
+function buildAutoPlacedArcPlacements(
+  existingSeats,
+  arcConfig,
+  fallbackCenter,
+  rowLetter,
+  arcId,
+) {
+  const resolvedArcLayout = resolveArcLayoutConfig(arcConfig);
+  const baseCenter = resolveArcPlacementCenter(
+    existingSeats,
+    fallbackCenter,
+    resolvedArcLayout.radius,
+  );
+
+  return findAvailableArcPlacements(
+    existingSeats,
+    resolvedArcLayout,
+    baseCenter,
+    rowLetter,
+    arcId,
+  );
+}
+
+function sortArcSeatsByLayoutOrder(arcSeats) {
+  return [...arcSeats].sort((leftSeat, rightSeat) => {
+    const leftIndex = Number.isFinite(leftSeat.arcSeatIndex)
+      ? leftSeat.arcSeatIndex
+      : null;
+    const rightIndex = Number.isFinite(rightSeat.arcSeatIndex)
+      ? rightSeat.arcSeatIndex
+      : null;
+
+    if (leftIndex !== null && rightIndex !== null) {
+      return leftIndex - rightIndex;
+    }
+
+    const leftNumber = Number.isFinite(leftSeat.number) ? leftSeat.number : 0;
+    const rightNumber = Number.isFinite(rightSeat.number)
+      ? rightSeat.number
+      : 0;
+    return leftNumber - rightNumber;
+  });
+}
+
+function distributeIndices(itemCount, slotCount) {
+  if (itemCount <= 0 || slotCount <= 0) return [];
+  if (itemCount === 1) {
+    return [Math.round((slotCount - 1) / 2)];
+  }
+
+  return Array.from({ length: itemCount }, (_, index) =>
+    Math.round((index * (slotCount - 1)) / (itemCount - 1)),
+  );
+}
+
+function buildArcSeatUpdatePayload(
+  seat,
+  point,
+  index,
+  rowLetter,
+  groupMetadata,
+  centerPoint,
+  resolvedArcLayout,
+) {
+  return {
+    ...seat,
+    x: point.x,
+    y: point.y,
+    row: rowLetter,
+    number: index + 1,
+    label: generateSeatLabel(rowLetter, index + 1),
+    groupId: groupMetadata.groupId,
+    groupType: groupMetadata.groupType,
+    rowId: groupMetadata.rowId,
+    arcId: groupMetadata.arcId,
+    arcCenterX: centerPoint.x,
+    arcCenterY: centerPoint.y,
+    arcRadius: resolvedArcLayout.radius,
+    arcAngle: resolvedArcLayout.arcAngle,
+    arcRotation: resolvedArcLayout.rotation,
+    arcSeatCount: resolvedArcLayout.seatCount,
+    arcSeatIndex: index,
+    arcSeatSpacing: resolvedArcLayout.seatSpacing,
+  };
+}
+
+function createArcSeatFromTemplate(
+  templateSeat,
+  point,
+  index,
+  rowLetter,
+  groupMetadata,
+  centerPoint,
+  resolvedArcLayout,
+) {
+  const newSeat = generateSeat(point, {
+    row: rowLetter,
+    number: index + 1,
+    label: generateSeatLabel(rowLetter, index + 1),
+    seatType: templateSeat.seatType,
+    width: templateSeat.width,
+    height: templateSeat.height,
+    size: templateSeat.size,
+    category: templateSeat.category,
+    status: templateSeat.status,
+    price: templateSeat.price,
+    ...groupMetadata,
+    arcCenterX: centerPoint.x,
+    arcCenterY: centerPoint.y,
+    arcRadius: resolvedArcLayout.radius,
+    arcAngle: resolvedArcLayout.arcAngle,
+    arcRotation: resolvedArcLayout.rotation,
+    arcSeatCount: resolvedArcLayout.seatCount,
+    arcSeatIndex: index,
+    arcSeatSpacing: resolvedArcLayout.seatSpacing,
+  });
+
+  return {
+    ...newSeat,
+    fill: templateSeat.fill ?? newSeat.fill,
+    stroke: templateSeat.stroke ?? newSeat.stroke,
+    radius: templateSeat.radius ?? newSeat.radius,
+    size: templateSeat.size ?? newSeat.size,
+    width: templateSeat.width ?? newSeat.width,
+    height: templateSeat.height ?? newSeat.height,
+  };
+}
+
+function buildUpdatedArcSeats(arcSeats, arcUpdates = {}) {
+  if (!arcSeats.length) return null;
+
+  const orderedArcSeats = sortArcSeatsByLayoutOrder(arcSeats);
+  const baseSeat = orderedArcSeats[0];
+
+  if (!hasArcLayoutMetadata(baseSeat)) {
+    return null;
+  }
+
+  const centerPoint = {
+    x:
+      Number.isFinite(arcUpdates.arcCenterX) || Number.isFinite(arcUpdates.x)
+        ? (arcUpdates.arcCenterX ?? arcUpdates.x)
+        : baseSeat.arcCenterX,
+    y:
+      Number.isFinite(arcUpdates.arcCenterY) || Number.isFinite(arcUpdates.y)
+        ? (arcUpdates.arcCenterY ?? arcUpdates.y)
+        : baseSeat.arcCenterY,
+  };
+
+  if (!Number.isFinite(centerPoint.x) || !Number.isFinite(centerPoint.y)) {
+    return null;
+  }
+
+  const nextSeatCount = normalizeArcSeatCount(
+    arcUpdates.arcSeatCount ?? arcUpdates.seatCount ?? orderedArcSeats.length,
+  );
+  const parsedArcAngle = Number(arcUpdates.arcAngle);
+  const parsedArcRadius = Number(arcUpdates.arcRadius);
+  const parsedArcSpacing = Number(arcUpdates.arcSeatSpacing);
+  const nextRadius = normalizeArcRadius(
+    Number.isFinite(parsedArcRadius) ? parsedArcRadius : baseSeat.arcRadius,
+  );
+  const nextArcAngle =
+    Number.isFinite(parsedArcAngle)
+      ? parsedArcAngle
+      : Number.isFinite(parsedArcSpacing) && nextSeatCount > 1
+        ? calculateArcAngleFromSpacing(
+          nextSeatCount,
+          nextRadius,
+          parsedArcSpacing,
+        )
+        : baseSeat.arcAngle;
+  const resolvedArcLayout = resolveArcLayoutConfig({
+    seatCount: nextSeatCount,
+    arcAngle: nextArcAngle,
+    radius: nextRadius,
+    rotation: arcUpdates.arcRotation ?? baseSeat.arcRotation,
+  });
+  const arcLayout = {
+    ...resolvedArcLayout,
+    seatSpacing: 150, // Force 150px spacing for all arc updates
+  };
+  const nextLayoutPoints = buildArcLayoutPoints({
+    centerPoint,
+    ...arcLayout,
+  });
+  const rowLetter = baseSeat.row || "A";
+  const groupMetadata = createSeatGroupMetadata(
+    ELEMENT_TYPES.ARC,
+    baseSeat.groupId,
+  );
+
+  if (nextSeatCount === orderedArcSeats.length) {
+    return orderedArcSeats.map((seat, index) =>
+      buildArcSeatUpdatePayload(
+        seat,
+        nextLayoutPoints[index],
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      ),
+    );
+  }
+
+  if (nextSeatCount < orderedArcSeats.length) {
+    const keptSeatIndices = distributeIndices(
+      nextSeatCount,
+      orderedArcSeats.length,
+    );
+
+    return keptSeatIndices.map((seatIndex, index) =>
+      buildArcSeatUpdatePayload(
+        orderedArcSeats[seatIndex],
+        nextLayoutPoints[index],
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      ),
+    );
+  }
+
+  const reusedSeatByNextIndex = new Map(
+    distributeIndices(orderedArcSeats.length, nextSeatCount).map(
+      (nextIndex, seatIndex) => [nextIndex, orderedArcSeats[seatIndex]],
+    ),
+  );
+
+  return nextLayoutPoints.map((point, index) => {
+    const existingSeat = reusedSeatByNextIndex.get(index);
+
+    if (existingSeat) {
+      return buildArcSeatUpdatePayload(
+        existingSeat,
+        point,
+        index,
+        rowLetter,
+        groupMetadata,
+        centerPoint,
+        arcLayout,
+      );
+    }
+
+    const templateSeat =
+      orderedArcSeats[
+        Math.round(
+          (index * (orderedArcSeats.length - 1)) /
+            Math.max(nextSeatCount - 1, 1),
+        )
+      ] ?? baseSeat;
+
+    return createArcSeatFromTemplate(
+      templateSeat,
+      point,
+      index,
+      rowLetter,
+      groupMetadata,
+      centerPoint,
+      arcLayout,
+    );
+  });
+}
+
+function applyArcGroupLayout(state, arcGroupId, arcUpdates = {}) {
+  if (!arcGroupId) return state;
+
+  const arcSeats = state.seats.filter(
+    (seat) =>
+      seat.groupType === ELEMENT_TYPES.ARC && seat.groupId === arcGroupId,
+  );
+  const updatedArcSeats = buildUpdatedArcSeats(arcSeats, arcUpdates);
+
+  if (!updatedArcSeats) return state;
+
+  const originalArcSeatIdSet = new Set(arcSeats.map((seat) => seat.id));
+  const nextArcSeatIdSet = new Set(updatedArcSeats.map((seat) => seat.id));
+  const isCompleteArcSelection =
+    state.selectedSeatIds.length === arcSeats.length &&
+    state.selectedSeatIds.every((seatId) => originalArcSeatIdSet.has(seatId));
+  const nextSelectedSeatIds = isCompleteArcSelection
+    ? updatedArcSeats.map((seat) => seat.id)
+    : state.selectedSeatIds.filter(
+      (seatId) =>
+        !originalArcSeatIdSet.has(seatId) || nextArcSeatIdSet.has(seatId),
+    );
+
+  const nextSeats = [];
+  let insertedUpdatedArcSeats = false;
+
+  state.seats.forEach((seat) => {
+    if (
+      seat.groupType === ELEMENT_TYPES.ARC &&
+      seat.groupId === arcGroupId
+    ) {
+      if (!insertedUpdatedArcSeats) {
+        nextSeats.push(...updatedArcSeats);
+        insertedUpdatedArcSeats = true;
+      }
+      return;
+    }
+
+    nextSeats.push(seat);
+  });
+
+  return {
+    seats: nextSeats,
+    selectedSeatIds: nextSelectedSeatIds,
+  };
+}
+
+function normalizeGeneratedArcGroup(nextSeats, arcGroupId) {
+  const arcSeats = nextSeats.filter(
+    (seat) =>
+      seat.groupType === ELEMENT_TYPES.ARC && seat.groupId === arcGroupId,
+  );
+  if (!arcSeats.length) return nextSeats;
+
+  const normalizedArcSeats = buildUpdatedArcSeats(arcSeats);
+  if (!normalizedArcSeats) return nextSeats;
+
+  const normalizedArcSeatMap = new Map(
+    normalizedArcSeats.map((seat) => [seat.id, seat]),
+  );
+
+  return nextSeats.map((seat) => normalizedArcSeatMap.get(seat.id) ?? seat);
+}
 
 function applySeatMoveUpdates(state, seatUpdates) {
   if (!seatUpdates.length) return state;
@@ -86,7 +542,16 @@ function applySeatMoveUpdates(state, seatUpdates) {
       continue;
     }
 
+    const deltaX = update.x - currentSeat.x;
+    const deltaY = update.y - currentSeat.y;
     const newSeat = { ...currentSeat, x: update.x, y: update.y };
+    if (
+      Number.isFinite(currentSeat.arcCenterX) &&
+      Number.isFinite(currentSeat.arcCenterY)
+    ) {
+      newSeat.arcCenterX = currentSeat.arcCenterX + deltaX;
+      newSeat.arcCenterY = currentSeat.arcCenterY + deltaY;
+    }
     if (newSeat.x !== currentSeat.x || newSeat.y !== currentSeat.y) {
       hasAnyPositionChange = true;
     }
@@ -158,11 +623,22 @@ function applySelectionRotation(state, angle) {
     const dx = seat.x - cx;
     const dy = seat.y - cy;
 
-    return {
+    const rotatedSeat = {
       ...seat,
       x: cx + dx * cos - dy * sin,
       y: cy + dx * sin + dy * cos,
     };
+    if (Number.isFinite(seat.arcCenterX) && Number.isFinite(seat.arcCenterY)) {
+      const centerDx = seat.arcCenterX - cx;
+      const centerDy = seat.arcCenterY - cy;
+      rotatedSeat.arcCenterX = cx + centerDx * cos - centerDy * sin;
+      rotatedSeat.arcCenterY = cy + centerDx * sin + centerDy * cos;
+    }
+    if (Number.isFinite(seat.arcRotation)) {
+      rotatedSeat.arcRotation = seat.arcRotation + angle;
+    }
+
+    return rotatedSeat;
   });
 
   const angleDeg = (angle * 180) / Math.PI;
@@ -193,7 +669,10 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
       Array.isArray(persisted.categories) && persisted.categories.length > 0
         ? persisted.categories
         : DEFAULT_CATEGORIES,
-    nextRowIndex: persisted.seats && persisted.seats.length > 0 ? (persisted.nextRowIndex || 0) : 0,
+    nextRowIndex:
+      persisted.seats && persisted.seats.length > 0
+        ? persisted.nextRowIndex || 0
+        : 0,
 
     // Custom spacing preference for align function
     customSpacing: persisted.customSpacing || 48, // Remember user's spacing preference
@@ -302,8 +781,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     updateSelectedSeatsSpacing: (newSpacing) =>
       trackedSet((state) => {
+        const selectedSeatIdSet = new Set(state.selectedSeatIds);
         const selectedSeats = state.seats.filter((seat) =>
-          state.selectedSeatIds.includes(seat.id),
+          selectedSeatIdSet.has(seat.id),
         );
 
         if (selectedSeats.length < 2) return state;
@@ -318,42 +798,48 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const leftmostX = selectedSeats[0].x;
         const rightmostX = selectedSeats[selectedSeats.length - 1].x;
         const currentRightmostPosition = rightmostX;
-        const newRightmostPosition = leftmostX + ((selectedSeats.length - 1) * newSpacing);
+        const newRightmostPosition =
+          leftmostX + (selectedSeats.length - 1) * newSpacing;
 
         // Calculate how much the rightmost seat moved
         const positionShift = newRightmostPosition - currentRightmostPosition;
 
         // Find all seats that come after the rightmost selected seat
-        const seatsToMove = state.seats.filter(seat =>
-          !state.selectedSeatIds.includes(seat.id) && seat.x > currentRightmostPosition
+        const seatsToMove = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x > currentRightmostPosition,
+        );
+        const seatsToMoveSet = new Set(seatsToMove.map((seat) => seat.id));
+        const nonSelectedSeats = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x <= currentRightmostPosition,
         );
 
         const updatedSeats = state.seats.map((seat) => {
           // Handle selected seats
-          if (state.selectedSeatIds.includes(seat.id)) {
+          if (selectedSeatIdSet.has(seat.id)) {
             // Find the index of this seat in the sorted selected seats
             const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
 
             // Calculate new position based on index and new spacing
-            let targetX = leftmostX + (seatIndex * newSpacing);
+            let targetX = leftmostX + seatIndex * newSpacing;
 
             // Check for overlaps with non-selected seats (only those before the selected area)
-            const seatRadius = 15; // Approximate seat radius
-            const nonSelectedSeats = state.seats.filter(s =>
-              !state.selectedSeatIds.includes(s.id) && s.x <= currentRightmostPosition
-            );
+            const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
 
             for (const otherSeat of nonSelectedSeats) {
               const distance = Math.abs(targetX - otherSeat.x);
               const yDistance = Math.abs(seat.y - otherSeat.y);
 
               // If seats would overlap (both x and y are too close)
-              if (distance < (seatRadius * 2) && yDistance < (seatRadius * 2)) {
+              if (distance < seatRadius * 2 && yDistance < seatRadius * 2) {
                 // Move the seat to the right of the overlapping seat
                 if (targetX < otherSeat.x) {
-                  targetX = otherSeat.x + (seatRadius * 2) + 5; // Add 5px buffer
+                  targetX = otherSeat.x + seatRadius * 2 + 5; // Add 5px buffer
                 } else {
-                  targetX = otherSeat.x - (seatRadius * 2) - 5; // Move to left
+                  targetX = otherSeat.x - seatRadius * 2 - 5; // Move to left
                 }
               }
             }
@@ -365,7 +851,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           }
 
           // Handle seats that come after the selected area - move them forward
-          if (seatsToMove.find(s => s.id === seat.id)) {
+          if (seatsToMoveSet.has(seat.id)) {
             return {
               ...seat,
               x: seat.x + positionShift,
@@ -378,7 +864,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
         return {
           seats: updatedSeats,
-          customSpacing: updatedCustomSpacing // Remember the spacing
+          customSpacing: updatedCustomSpacing, // Remember the spacing
         };
       }),
 
@@ -386,18 +872,18 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     previewSelectedSeatsSpacing: (newSpacing) =>
       set((state) => {
+        const selectedSeatIdSet = new Set(state.selectedSeatIds);
         const selectedSeats = state.seats.filter((seat) =>
-          state.selectedSeatIds.includes(seat.id),
+          selectedSeatIdSet.has(seat.id),
         );
 
         if (selectedSeats.length < 2) return state;
 
         // Store original positions for ALL seats (selected + subsequent) for proper cancel
         const originalPositions = {};
-        state.seats.forEach(seat => {
+        state.seats.forEach((seat) => {
           originalPositions[seat.id] = seat.x;
         });
-        console.log('Storing original positions for', Object.keys(originalPositions).length, 'seats');
 
         // Sort selected seats by x position
         selectedSeats.sort((a, b) => a.x - b.x);
@@ -406,42 +892,48 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const leftmostX = selectedSeats[0].x;
         const rightmostX = selectedSeats[selectedSeats.length - 1].x;
         const currentRightmostPosition = rightmostX;
-        const newRightmostPosition = leftmostX + ((selectedSeats.length - 1) * newSpacing);
+        const newRightmostPosition =
+          leftmostX + (selectedSeats.length - 1) * newSpacing;
 
         // Calculate how much the rightmost seat moved
         const positionShift = newRightmostPosition - currentRightmostPosition;
 
         // Find all seats that come after the rightmost selected seat
-        const seatsToMove = state.seats.filter(seat =>
-          !state.selectedSeatIds.includes(seat.id) && seat.x > currentRightmostPosition
+        const seatsToMove = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x > currentRightmostPosition,
+        );
+        const seatsToMoveSet = new Set(seatsToMove.map((seat) => seat.id));
+        const nonSelectedSeats = state.seats.filter(
+          (seat) =>
+            !selectedSeatIdSet.has(seat.id) &&
+            seat.x <= currentRightmostPosition,
         );
 
         const updatedSeats = state.seats.map((seat) => {
           // Handle selected seats
-          if (state.selectedSeatIds.includes(seat.id)) {
+          if (selectedSeatIdSet.has(seat.id)) {
             // Find the index of this seat in the sorted selected seats
             const seatIndex = selectedSeats.findIndex((s) => s.id === seat.id);
 
             // Calculate new position based on index and new spacing
-            let targetX = leftmostX + (seatIndex * newSpacing);
+            let targetX = leftmostX + seatIndex * newSpacing;
 
             // Check for overlaps with non-selected seats (only those before the selected area)
-            const seatRadius = 15; // Approximate seat radius
-            const nonSelectedSeats = state.seats.filter(s =>
-              !state.selectedSeatIds.includes(s.id) && s.x <= currentRightmostPosition
-            );
+            const seatRadius = seat.radius ?? DEFAULT_SEAT_RADIUS;
 
             for (const otherSeat of nonSelectedSeats) {
               const distance = Math.abs(targetX - otherSeat.x);
               const yDistance = Math.abs(seat.y - otherSeat.y);
 
               // If seats would overlap (both x and y are too close)
-              if (distance < (seatRadius * 2) && yDistance < (seatRadius * 2)) {
+              if (distance < seatRadius * 2 && yDistance < seatRadius * 2) {
                 // Move the seat to the right of the overlapping seat
                 if (targetX < otherSeat.x) {
-                  targetX = otherSeat.x + (seatRadius * 2) + 5; // Add 5px buffer
+                  targetX = otherSeat.x + seatRadius * 2 + 5; // Add 5px buffer
                 } else {
-                  targetX = otherSeat.x - (seatRadius * 2) - 5; // Move to left
+                  targetX = otherSeat.x - seatRadius * 2 - 5; // Move to left
                 }
               }
             }
@@ -453,7 +945,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           }
 
           // Handle seats that come after the selected area - move them forward in preview
-          if (seatsToMove.find(s => s.id === seat.id)) {
+          if (seatsToMoveSet.has(seat.id)) {
             return {
               ...seat,
               x: seat.x + positionShift,
@@ -466,15 +958,13 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
         return {
           seats: updatedSeats,
-          spacingPreview: originalPositions
+          spacingPreview: originalPositions,
         };
       }),
 
     clearSpacingPreview: () =>
       trackedSet((state) => {
-        console.log('clearSpacingPreview called, spacingPreview:', state.spacingPreview);
         if (!state.spacingPreview) {
-          console.log('No spacingPreview data found');
           return state;
         }
 
@@ -482,17 +972,14 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const restoredSeats = state.seats.map((seat) => {
           const originalX = state.spacingPreview[seat.id];
           if (originalX !== undefined) {
-            console.log(`Restoring seat ${seat.id} from ${seat.x} to ${originalX}`);
             return {
               ...seat,
               x: originalX, // Restore to original X position
             };
           }
-          console.log(`Seat ${seat.id} not in preview data, keeping current position`);
           return seat;
         });
 
-        console.log('Restoration complete, clearing spacingPreview');
         return {
           seats: restoredSeats,
           spacingPreview: null,
@@ -512,26 +999,46 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         }
 
         if (state.activeTool === TOOL_TEXT) {
-          const newTextId = createId(ELEMENT_TYPES.TEXT);
-          return {
-            texts: [
-              ...state.texts,
-              {
-                id: newTextId,
-                x: worldPoint.x,
-                y: worldPoint.y,
-                content: "Text",
-                fontSize: 20,
-                fill: "#c9d6ea",
-                fontWeight: "normal",
-                fontStyle: "normal",
-                rotate: 0,
-              },
-            ],
-            selectedTextIds: [newTextId],
-            selectedSeatIds: [],
-            selectedShapeIds: [],
-          };
+          // Check if clicking on existing text
+          const clickedText = state.texts.find(text => {
+            const distance = Math.sqrt(
+              Math.pow(text.x - worldPoint.x, 2) + Math.pow(text.y - worldPoint.y, 2)
+            );
+            // Use dynamic selection radius based on font size
+            const selectionRadius = Math.max(30, text.fontSize || 20);
+            return distance < selectionRadius;
+          });
+
+          if (clickedText) {
+            // Select existing text for editing
+            return {
+              selectedTextIds: [clickedText.id],
+              selectedSeatIds: [],
+              selectedShapeIds: [],
+            };
+          } else {
+            // Create new text
+            const newTextId = createId(ELEMENT_TYPES.TEXT);
+            return {
+              texts: [
+                ...state.texts,
+                {
+                  id: newTextId,
+                  x: worldPoint.x,
+                  y: worldPoint.y,
+                  content: "Text",
+                  fontSize: 20,
+                  fill: "#c9d6ea",
+                  fontWeight: "normal",
+                  fontStyle: "normal",
+                  rotate: 0,
+                },
+              ],
+              selectedTextIds: [newTextId],
+              selectedSeatIds: [],
+              selectedShapeIds: [],
+            };
+          }
         }
         if (state.activeTool === TOOL_SHAPE) {
           if (state.selectedShapeType === SHAPE_TYPES.POLYGON) {
@@ -551,7 +1058,10 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           if (isOverlapping(worldPoint.x, worldPoint.y, state.seats))
             return state;
           const nextSeatLabel = getNextSingleSeatLabel(state.seats);
-          const newSeat = generateSeat(worldPoint, nextSeatLabel);
+          const newSeat = generateSeat(worldPoint, {
+            ...nextSeatLabel,
+            seatType: state.selectedSeatType,
+          });
           return { seats: [...state.seats, newSeat] };
         }
         return state;
@@ -614,6 +1124,69 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
     // Used by drag gestures to avoid history entries per mouse move.
     moveShapesPreview: (shapeUpdates) =>
       set((state) => applyShapeMoveUpdates(state, shapeUpdates)),
+
+    // ─── Resize ──────────────────────────────────────────────────────────────
+
+    resizeSeats: (seatUpdates) =>
+      trackedSet((state) => {
+        const updateMap = new Map();
+        seatUpdates.forEach((update) => {
+          updateMap.set(update.id, update);
+        });
+
+        const updatedSeats = state.seats.map((seat) => {
+          const update = updateMap.get(seat.id);
+          if (!update) return seat;
+
+          const typeConfig =
+            SEAT_TYPE_CONFIG[seat.seatType || SEAT_TYPES.CHAIR];
+          const minSize = typeConfig?.minSize || 14;
+          const maxSize = typeConfig?.maxSize || 150;
+
+          return {
+            ...seat,
+            width: update.width
+              ? Math.max(minSize, Math.min(maxSize, update.width))
+              : seat.width,
+            height: update.height
+              ? Math.max(minSize, Math.min(maxSize, update.height))
+              : seat.height,
+          };
+        });
+
+        return { seats: updatedSeats };
+      }),
+
+    // Used by drag gestures to avoid history entries per mouse move.
+    resizeSeatsPreview: (seatUpdates) =>
+      set((state) => {
+        const updateMap = new Map();
+        seatUpdates.forEach((update) => {
+          updateMap.set(update.id, update);
+        });
+
+        const updatedSeats = state.seats.map((seat) => {
+          const update = updateMap.get(seat.id);
+          if (!update) return seat;
+
+          const typeConfig =
+            SEAT_TYPE_CONFIG[seat.seatType || SEAT_TYPES.CHAIR];
+          const minSize = typeConfig?.minSize || 14;
+          const maxSize = typeConfig?.maxSize || 150;
+
+          return {
+            ...seat,
+            width: update.width
+              ? Math.max(minSize, Math.min(maxSize, update.width))
+              : seat.width,
+            height: update.height
+              ? Math.max(minSize, Math.min(maxSize, update.height))
+              : seat.height,
+          };
+        });
+
+        return { seats: updatedSeats };
+      }),
 
     // ─── Erase ───────────────────────────────────────────────────────────────
 
@@ -707,9 +1280,15 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           return state;
 
         // Filter out selected elements
-        const updatedSeats = state.seats.filter((s) => !selectedSeatIds.has(s.id));
-        const updatedTexts = state.texts.filter((t) => !selectedTextIds.has(t.id));
-        const updatedShapes = state.shapes.filter((s) => !selectedShapeIds.has(s.id));
+        const updatedSeats = state.seats.filter(
+          (s) => !selectedSeatIds.has(s.id),
+        );
+        const updatedTexts = state.texts.filter(
+          (t) => !selectedTextIds.has(t.id),
+        );
+        const updatedShapes = state.shapes.filter(
+          (s) => !selectedShapeIds.has(s.id),
+        );
 
         // Re-number rows for seats
         const rows = {};
@@ -745,7 +1324,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
     // ─── Commit Row / Arc ─────────────────────────────────────────────────────
 
-    commitRow: (rowPoints) =>
+    commitRow: (rowPoints, seatType) =>
       trackedSet((state) => {
         if (state.activeTool !== TOOL_ROW || rowPoints.length === 0)
           return state;
@@ -754,7 +1333,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         const rowLetter = getRowLetter(currentRowIndex);
         const rowId = createId(ELEMENT_TYPES.ROW);
 
-        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter, rowId);
+        const seatsWithOptions = generateRowSeats(rowPoints, rowLetter, rowId, seatType);
         const nextSeats = appendNonOverlappingSeats(
           state.seats,
           seatsWithOptions,
@@ -766,26 +1345,100 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
         };
       }),
 
-    commitArc: (arcPoints) =>
+    commitArc: (arcConfig, centerPoint, seatType) =>
       trackedSet((state) => {
-        if (state.activeTool !== TOOL_ARC || arcPoints.length === 0)
+        if (state.activeTool !== TOOL_ARC) return state;
+        if (
+          !centerPoint ||
+          !Number.isFinite(centerPoint.x) ||
+          !Number.isFinite(centerPoint.y)
+        ) {
           return state;
+        }
 
         const currentRowIndex = state.nextRowIndex;
         const rowLetter = getRowLetter(currentRowIndex);
         const arcId = createId(ELEMENT_TYPES.ARC);
-
-        const seatsWithOptions = generateArcSeats(arcPoints, rowLetter, arcId);
-        const nextSeats = appendNonOverlappingSeats(
+        const arcPlacements = findAvailableArcPlacements(
           state.seats,
-          seatsWithOptions,
+          arcConfig,
+          centerPoint,
+          rowLetter,
+          arcId,
+          seatType,
         );
+
+        if (!arcPlacements?.length) {
+          return state;
+        }
+
+        return {
+          seats: normalizeGeneratedArcGroup(
+            appendNonOverlappingSeats(state.seats, arcPlacements),
+            arcId,
+          ),
+          nextRowIndex: currentRowIndex + 1,
+        };
+      }),
+
+    generateArcGroup: (arcConfig, centerPoint) =>
+      trackedSet((state) => {
+        if (state.activeTool !== TOOL_ARC) return state;
+
+        const arcCenter = centerPoint ?? state.arcGeneratorCenter;
+        if (!arcCenter || !Number.isFinite(arcCenter.x)) {
+          return state;
+        }
+
+        const currentRowIndex = state.nextRowIndex;
+        const rowLetter = getRowLetter(currentRowIndex);
+        const arcId = createId(ELEMENT_TYPES.ARC);
+        const arcPlacements = buildAutoPlacedArcPlacements(
+          state.seats,
+          arcConfig,
+          arcCenter,
+          rowLetter,
+          arcId,
+        );
+
+        if (!arcPlacements?.length) return state;
+
+        const nextSeats = normalizeGeneratedArcGroup(
+          appendNonOverlappingSeats(state.seats, arcPlacements),
+          arcId,
+        );
+
+        // Force 150px spacing for all arc seats
+        const finalSeats = nextSeats.map(seat => ({
+          ...seat,
+          options: {
+            ...seat.options,
+            arcSeatSpacing: 150, // Override with fixed 150px spacing
+          },
+        }));
+        const generatedArcSeatIds = nextSeats
+          .filter(
+            (seat) =>
+              seat.groupType === ELEMENT_TYPES.ARC && seat.groupId === arcId,
+          )
+          .map((seat) => seat.id);
+
+        if (!generatedArcSeatIds.length) return state;
 
         return {
           seats: nextSeats,
           nextRowIndex: currentRowIndex + 1,
+          selectedSeatIds: generatedArcSeatIds,
+          selectedTextIds: [],
+          selectedShapeIds: [],
         };
       }),
+
+    updateArcGroup: (arcGroupId, arcUpdates) =>
+      trackedSet((state) => applyArcGroupLayout(state, arcGroupId, arcUpdates)),
+
+    updateArcGroupPreview: (arcGroupId, arcUpdates) =>
+      set((state) => applyArcGroupLayout(state, arcGroupId, arcUpdates)),
 
     // ─── Rotate Selection ─────────────────────────────────────────────────────
 
@@ -810,7 +1463,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
 
       // Include all seats (selected and non-selected) to find the correct row Y position
       state.seats.forEach((seat) => {
-        const rowKey = seat.row || 'unassigned';
+        const rowKey = seat.row || "unassigned";
         if (!seatsByRow[rowKey]) seatsByRow[rowKey] = [];
         seatsByRow[rowKey].push(seat);
       });
@@ -831,7 +1484,9 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           const seatIndex = rowSeats.findIndex((s) => s.id === seat.id);
 
           // Find the Y position of all seats in this row (including non-selected)
-          const nonSelectedRowSeats = rowSeats.filter(s => !state.selectedSeatIds.includes(s.id));
+          const nonSelectedRowSeats = rowSeats.filter(
+            (s) => !state.selectedSeatIds.includes(s.id),
+          );
           let targetY = seat.y; // Default to current Y
 
           // If there are non-selected seats in the row, use their exact Y position
@@ -845,7 +1500,7 @@ export function createElementSlice(set, get, { trackedSet, persisted }) {
           }
 
           // Use custom spacing if available, otherwise default
-          const baseSpacing = state.customSpacing || (gridSize * 1.2);
+          const baseSpacing = state.customSpacing || gridSize * 1.2;
 
           // Find the leftmost seat position and align it to grid
           const leftmostX = Math.min(...rowSeats.map((s) => s.x));

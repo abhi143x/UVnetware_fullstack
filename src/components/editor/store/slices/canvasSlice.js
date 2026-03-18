@@ -1,30 +1,48 @@
 // ─── Canvas Slice ─────────────────────────────────────────────────────────────
 // Manages template versioning, persistence (save/export/clear), and layout load.
 
-const STORAGE_KEY = "uvnetware-layout";
+export const EDITOR_PERSISTENCE_KEY = "uvnet_editor_draft";
+
+const EMPTY_PERSISTED_LAYOUT = Object.freeze({
+  seats: [],
+  texts: [],
+  shapes: [],
+  categories: [],
+  nextRowIndex: 0,
+  customSpacing: 48,
+});
+
+export function buildPersistedLayoutSnapshot(state, metadata = {}) {
+  const seats = Array.isArray(state?.seats) ? state.seats : [];
+
+  return {
+    seats,
+    texts: Array.isArray(state?.texts) ? state.texts : [],
+    shapes: Array.isArray(state?.shapes) ? state.shapes : [],
+    categories: Array.isArray(state?.categories) ? state.categories : [],
+    nextRowIndex:
+      typeof state?.nextRowIndex === "number" ? state.nextRowIndex : 0,
+    customSpacing:
+      typeof state?.customSpacing === "number" ? state.customSpacing : 48,
+    currentLayoutId: metadata.currentLayoutId ?? null,
+    currentLayoutName: metadata.currentLayoutName ?? "",
+  };
+}
 
 export function loadFromStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { seats: [], texts: [], categories: [], nextRowIndex: 0, customSpacing: 48 };
+    const raw = localStorage.getItem(EDITOR_PERSISTENCE_KEY);
+    if (!raw) return { ...EMPTY_PERSISTED_LAYOUT };
     const parsed = JSON.parse(raw);
-    const seats = Array.isArray(parsed.seats) ? parsed.seats : [];
-    return {
-      seats: seats,
-      texts: Array.isArray(parsed.texts) ? parsed.texts : [],
-      shapes: Array.isArray(parsed.shapes) ? parsed.shapes : [],
-      categories: Array.isArray(parsed.categories) ? parsed.categories : [],
-      nextRowIndex: seats.length > 0 ? (typeof parsed.nextRowIndex === "number" ? parsed.nextRowIndex : 0) : 0,
-      customSpacing: typeof parsed.customSpacing === "number" ? parsed.customSpacing : 48,
-    };
+    return buildPersistedLayoutSnapshot(parsed);
   } catch {
-    return { seats: [], texts: [], categories: [], nextRowIndex: 0, customSpacing: 48 };
+    return { ...EMPTY_PERSISTED_LAYOUT };
   }
 }
 
 export function clearStorageCache() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(EDITOR_PERSISTENCE_KEY);
     return true;
   } catch {
     return false;
@@ -34,6 +52,8 @@ export function clearStorageCache() {
 export function createCanvasSlice(set, get, { trackedSet, persisted }) {
   return {
     // State
+    snapEnabled: true,
+    gridSize: 20,
     templateVersion: 0,
     lastSavedAt:
       persisted.seats.length > 0 || persisted.texts.length > 0
@@ -41,6 +61,8 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
         : null,
 
     // Actions
+    toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+    
     loadTemplate: (templateData) =>
       // Loading a predefined venue should not create an undo entry.
       set((state) => ({
@@ -56,11 +78,11 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
       })),
 
     saveLayout: () => {
-      const { seats, texts, categories, nextRowIndex, customSpacing } = get();
+      const state = get();
       try {
         localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({ seats, texts, categories, nextRowIndex, customSpacing }),
+          EDITOR_PERSISTENCE_KEY,
+          JSON.stringify(buildPersistedLayoutSnapshot(state)),
         );
         set({ lastSavedAt: Date.now() });
         return true;
@@ -70,9 +92,10 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
     },
 
     exportJSON: () => {
-      const { seats, texts, categories, nextRowIndex, customSpacing } = get();
+      const { seats, texts, shapes, categories, nextRowIndex, customSpacing } =
+        get();
       const data = JSON.stringify(
-        { seats, texts, categories, nextRowIndex, customSpacing },
+        { seats, texts, shapes, categories, nextRowIndex, customSpacing },
         null,
         2,
       );
@@ -86,7 +109,7 @@ export function createCanvasSlice(set, get, { trackedSet, persisted }) {
     },
 
     clearLayout: () => {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(EDITOR_PERSISTENCE_KEY);
       trackedSet({
         seats: [],
         texts: [],

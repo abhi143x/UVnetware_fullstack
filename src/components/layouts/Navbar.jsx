@@ -172,12 +172,21 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full bg-linear-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
       <div className="w-full px-8 sm:px-12 py-2.5 sm:py-3 flex items-center gap-8">
-        {/* SECTION 1: Company Name */}
-
+        {/* SECTION 1: Company Logo & Name */}
         <div className="shrink-0">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="text-3xl font-black bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
-              UV<span className="text-white">  Netware</span>
+          <Link
+            to="/"
+            className="flex items-center gap-3 group hover:scale-105 transition-transform duration-300"
+          >
+            {/* The SVG Logo */}
+            <img
+              src="/logo.svg"
+              alt="UV Logo"
+              className="h-8 sm:h-9 w-auto drop-shadow-md"
+            />
+            {/* The Netware Text */}
+            <div className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
+              Netware
             </div>
           </Link>
         </div>

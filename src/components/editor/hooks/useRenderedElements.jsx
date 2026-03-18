@@ -23,6 +23,8 @@ export function useRenderedElements(
   hoveredTextId,
   hoveredShapeId,
   categories = [],
+  camera = null,
+  viewport = null,
 ) {
   const selectedSeatIdSet = useMemo(
     () => new Set(selectedSeatIds),
@@ -59,8 +61,24 @@ export function useRenderedElements(
     return map;
   }, [categories]);
 
+  // P-06: Compute visible world bounds for viewport culling
+  const visibleSeats = useMemo(() => {
+    if (!camera || !viewport || viewport.width <= 1) return seats;
+    const scale = camera.scale;
+    const left   = -camera.position.x / scale;
+    const top    = -camera.position.y / scale;
+    const right  = left + viewport.width / scale;
+    const bottom = top  + viewport.height / scale;
+    // 1-seat padding so seats at the edge don't pop
+    const MARGIN = 30;
+    return seats.filter(
+      (s) => s.x >= left - MARGIN && s.x <= right + MARGIN &&
+             s.y >= top  - MARGIN && s.y <= bottom + MARGIN
+    );
+  }, [seats, camera, viewport]);
+
   const renderedSeats = useMemo(() => {
-    return seats.map((seat) => {
+    return visibleSeats.map((seat) => {
       const isSelected = selectedSeatIdSet.has(seat.id);
       const isEraseHovered = Boolean(erasePreviewSeatIdSet?.has(seat.id));
       const categoryColor = seat.category
@@ -77,7 +95,7 @@ export function useRenderedElements(
         />
       );
     });
-  }, [seats, selectedSeatIdSet, erasePreviewSeatIdSet, categoryColorMap]);
+  }, [visibleSeats, selectedSeatIdSet, erasePreviewSeatIdSet, categoryColorMap]);
 
   const renderedTexts = useMemo(() => {
     return texts.map((textItem) => {
@@ -86,15 +104,23 @@ export function useRenderedElements(
         isEraseModeActive && textItem.id === hoveredTextId;
 
       return (
-        <TextComponent
+        <g
           key={textItem.id}
-          textItem={textItem}
-          isSelected={isSelected}
-          isEraseHovered={isEraseHovered}
-        />
+          data-type="text"
+          onClick={(e) => {
+            e.stopPropagation();   
+          }}
+        >
+          <TextComponent
+            textItem={textItem}
+            isSelected={isSelected}
+            isEraseHovered={isEraseHovered}
+            activeTool={activeTool}
+          />
+        </g>
       );
     });
-  }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId]);
+  }, [texts, selectedTextIdSet, isEraseModeActive, hoveredTextId, activeTool]);
 
   const renderedShapes = useMemo(() => {
     return shapes.map((shape) => {

@@ -9,8 +9,6 @@ const DEGREES_PER_RADIAN = 180 / Math.PI
 const RADIANS_PER_DEGREE = Math.PI / 180
 const PAN_CLICK_TOLERANCE = 4
 const PREVIEW_SEAT_RADIUS = 12
-const MIN_ARC_COMMIT_RADIUS = PREVIEW_SEAT_RADIUS * 0.75
-const MIN_ARC_COMMIT_SWEEP = 4 * RADIANS_PER_DEGREE
 
 export {
   INITIAL_UNITS_PER_PIXEL,
@@ -24,8 +22,6 @@ export {
   RADIANS_PER_DEGREE,
   PAN_CLICK_TOLERANCE,
   PREVIEW_SEAT_RADIUS,
-  MIN_ARC_COMMIT_RADIUS,
-  MIN_ARC_COMMIT_SWEEP,
 }
 
 // ─── Pure Math Utilities ──────────────────────────────────────────────────────
@@ -61,7 +57,7 @@ export function resolveRowAngle(rawAngle, shiftKey) {
   return finalAngleDeg * RADIANS_PER_DEGREE
 }
 
-export function buildRowPoints(startPoint, endPoint, shiftKey) {
+export function buildRowPoints(startPoint, endPoint, shiftKey, seatType = 'chair') {
   const deltaX = endPoint.x - startPoint.x
   const deltaY = endPoint.y - startPoint.y
   const rawAngle = Math.atan2(deltaY, deltaX)
@@ -69,13 +65,21 @@ export function buildRowPoints(startPoint, endPoint, shiftKey) {
   const unitX = Math.cos(finalAngle)
   const unitY = Math.sin(finalAngle)
   const distance = Math.hypot(deltaX, deltaY)
-  const seatCount = Math.floor(distance / GRID_SIZE)
+  
+  // Dynamic spacing based on seat type
+  let spacing = GRID_SIZE; // Default 40px
+  if (seatType === 'sofa') spacing = 80; // More space for large sofas
+  if (seatType === 'table') spacing = 80; // Medium space for tables
+  if (seatType === 'wheelchair') spacing = 80; // Space for wheelchairs
+  if (seatType === 'roundTable') spacing = 80; // Space for round tables
+  
+  const seatCount = Math.floor(distance / spacing)
   const points = []
 
   for (let step = 0; step <= seatCount; step += 1) {
     points.push({
-      x: startPoint.x + unitX * (step * GRID_SIZE),
-      y: startPoint.y + unitY * (step * GRID_SIZE),
+      x: startPoint.x + unitX * (step * spacing),
+      y: startPoint.y + unitY * (step * spacing),
     })
   }
 
@@ -87,40 +91,6 @@ export function normalizeAngleDelta(angle) {
   while (normalizedAngle <= -Math.PI) normalizedAngle += Math.PI * 2
   while (normalizedAngle > Math.PI) normalizedAngle -= Math.PI * 2
   return normalizedAngle
-}
-
-export function buildArcPoints(centerPoint, radius, startAngle, totalSweep, rotation=0) {
-  if (radius <= 0 || startAngle === null || totalSweep === null) return [centerPoint]
-
-  const arcLength = Math.abs(totalSweep) * radius
-  if (arcLength < 1) {
-    return [{
-      x: centerPoint.x + radius * Math.cos(startAngle + totalSweep),
-      y: centerPoint.y + radius * Math.sin(startAngle + totalSweep),
-    }]
-  }
-
-  const segmentCount = Math.max(1, Math.round(arcLength / GRID_SIZE))
-  const points = []
-
-  for (let step = 0; step <= segmentCount; step += 1) {
-    const progress = step / segmentCount
-    const angle = startAngle + totalSweep * progress + rotation
-    points.push({
-      x: centerPoint.x + radius * Math.cos(angle),
-      y: centerPoint.y + radius * Math.sin(angle),
-    })
-  }
-
-  return points
-}
-
-export function canCommitArc(arcSession) {
-  return (
-    arcSession.startAngle !== null &&
-    arcSession.radius >= MIN_ARC_COMMIT_RADIUS &&
-    Math.abs(arcSession.totalSweep) >= MIN_ARC_COMMIT_SWEEP
-  )
 }
 
 export function screenToWorldPoint(screenPoint, camera) {

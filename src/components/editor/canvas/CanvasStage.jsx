@@ -17,6 +17,8 @@ const CanvasStage = ({
   polygonPreview,
   marqueeRect,
   nextRowIndex = 0,
+  snapEnabled,
+  gridSize,
 }) => {
   return (
     <svg
@@ -28,7 +30,7 @@ const CanvasStage = ({
       <g
         transform={`translate(${camera.position.x}, ${camera.position.y}) scale(${camera.scale})`}
       >
-        <GridLayer />
+        <GridLayer camera={camera} viewport={viewport} snapEnabled={snapEnabled} gridSize={gridSize} />
         <ShapeLayer renderedShapes={renderedShapes} />
         <SeatLayer renderedSeats={renderedSeats} />
         <TextLayer renderedTexts={renderedTexts} />

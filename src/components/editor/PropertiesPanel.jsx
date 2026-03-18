@@ -1,7 +1,10 @@
 import { useEditorStore } from "./store/editorStore";
 import { TOOL_SELECT } from "./constants/tools";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { SHAPE_TYPES, normalizeShapeSize } from "./services/shapeService";
+import { hasArcLayoutMetadata } from "./services/arcService";
+import { ELEMENT_TYPES } from "./domain/elementTypes";
+import { SeatTypeSelector } from "./components/SeatTypeSelector";
 
 // ── tiny primitives ──────────────────────────────────────────────────────────
 
@@ -100,8 +103,12 @@ function PropertiesPanel() {
   const texts = useEditorStore((s) => s.texts);
   const shapes = useEditorStore((s) => s.shapes);
   const categories = useEditorStore((s) => s.categories);
+  const selectedSeatType = useEditorStore((s) => s.selectedSeatType);
+  const setSelectedSeatType = useEditorStore((s) => s.setSelectedSeatType);
   const updateSeat = useEditorStore((s) => s.updateSeat);
   const updateSeats = useEditorStore((s) => s.updateSeats);
+  const updateArcGroup = useEditorStore((s) => s.updateArcGroup);
+  const updateArcGroupPreview = useEditorStore((s) => s.updateArcGroupPreview);
   const updateText = useEditorStore((s) => s.updateText);
   const updateTextPreview = useEditorStore((s) => s.updateTextPreview);
   const updateShape = useEditorStore((s) => s.updateShape);
@@ -133,13 +140,51 @@ function PropertiesPanel() {
   const selectedSeats = hasSeatsSelected
     ? seats.filter((s) => selectedSeatIds.includes(s.id))
     : [];
+  const selectedArcGroupId =
+    hasSeatsSelected &&
+      selectedSeats.every(
+        (seat) =>
+          seat.groupType === ELEMENT_TYPES.ARC &&
+          seat.groupId === selectedSeats[0]?.groupId,
+      )
+      ? selectedSeats[0]?.groupId
+      : null;
+  const selectedArcGroupSeats = selectedArcGroupId
+    ? seats.filter(
+      (seat) =>
+        seat.groupType === ELEMENT_TYPES.ARC &&
+        seat.groupId === selectedArcGroupId,
+    )
+    : [];
+  const isCompleteArcSelection =
+    selectedArcGroupId &&
+    selectedArcGroupSeats.length === selectedSeats.length &&
+    selectedArcGroupSeats.length > 0;
+  const editableArcSeat =
+    isCompleteArcSelection &&
+      selectedArcGroupSeats.every((seat) => hasArcLayoutMetadata(seat))
+      ? selectedArcGroupSeats[0]
+      : null;
 
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#5fa7ff");
+  const [seatWidth, setSeatWidth] = useState(selectedSeat?.width || 24);
+  const [seatHeight, setSeatHeight] = useState(selectedSeat?.height || 24);
   const [newCategoryPrice, setNewCategoryPrice] = useState("");
   const [catOpen, setCatOpen] = useState(false);
   const rotateGestureActiveRef = useRef(false);
+
+  // Sync local state when selectedSeat changes
+  useEffect(() => {
+    if (selectedSeat) {
+      setSeatWidth(selectedSeat.width || 24);
+      setSeatHeight(selectedSeat.height || 24);
+    }
+  }, [selectedSeat?.id]);
   const rotateCheckpointCapturedRef = useRef(false);
+  const arcAngleGestureActiveRef = useRef(false);
+  const arcRadiusGestureActiveRef = useRef(false);
+  const arcCheckpointCapturedRef = useRef(false);
 
   const handleApply = () => {
     clearSelection();
@@ -254,6 +299,45 @@ function PropertiesPanel() {
     }
 
     updateText(selectedText.id, { rotate: nextRotate });
+  };
+
+  const beginArcGesture = (field) => {
+    if (field === "arcAngle") arcAngleGestureActiveRef.current = true;
+    if (field === "arcRadius") arcRadiusGestureActiveRef.current = true;
+  };
+
+  const endArcGesture = (field) => {
+    if (field === "arcAngle") arcAngleGestureActiveRef.current = false;
+    if (field === "arcRadius") arcRadiusGestureActiveRef.current = false;
+    if (
+      !arcAngleGestureActiveRef.current &&
+      !arcRadiusGestureActiveRef.current
+    ) {
+      arcCheckpointCapturedRef.current = false;
+    }
+  };
+
+  const handleArcFieldChange = (field, value) => {
+    if (!selectedArcGroupId || !editableArcSeat) return;
+
+    const parsedValue = parseFloat(value);
+    if (!Number.isFinite(parsedValue)) return;
+
+    const updates = { [field]: parsedValue };
+    const isGestureActive =
+      (field === "arcAngle" && arcAngleGestureActiveRef.current) ||
+      (field === "arcRadius" && arcRadiusGestureActiveRef.current);
+
+    if (isGestureActive) {
+      if (!arcCheckpointCapturedRef.current) {
+        pushHistoryCheckpoint?.();
+        arcCheckpointCapturedRef.current = true;
+      }
+      updateArcGroupPreview(selectedArcGroupId, updates);
+      return;
+    }
+
+    updateArcGroup(selectedArcGroupId, updates);
   };
 
   return (
@@ -417,6 +501,81 @@ function PropertiesPanel() {
         {/* ── SEAT SECTION ── */}
         {hasSeatsSelected && (
           <>
+            {editableArcSeat && (
+              <div className="flex flex-col gap-3">
+                <SectionHeader>Arc</SectionHeader>
+
+                <Field label="Seats">
+                  <div className="rounded-md border border-white/8 bg-[#0c1017] px-2.5 py-1.5 text-[12px] text-white/75">
+                    {selectedArcGroupSeats.length} seats in this arc
+                  </div>
+                </Field>
+
+                <Field label="Angle">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="15"
+                      max="330"
+                      step="1"
+                      value={Math.round(editableArcSeat.arcAngle)}
+                      onPointerDown={() => beginArcGesture("arcAngle")}
+                      onPointerUp={() => endArcGesture("arcAngle")}
+                      onPointerCancel={() => endArcGesture("arcAngle")}
+                      onFocus={() => beginArcGesture("arcAngle")}
+                      onBlur={() => endArcGesture("arcAngle")}
+                      onChange={(e) =>
+                        handleArcFieldChange("arcAngle", e.target.value)
+                      }
+                      className="w-full accent-[#587cb3]"
+                    />
+                    <Input
+                      type="number"
+                      min="15"
+                      max="330"
+                      step="1"
+                      value={Math.round(editableArcSeat.arcAngle)}
+                      onChange={(e) =>
+                        handleArcFieldChange("arcAngle", e.target.value)
+                      }
+                      className="w-20 shrink-0"
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Radius">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="24"
+                      max={Math.max(600, Math.round(editableArcSeat.arcRadius * 2))}
+                      step="1"
+                      value={Math.round(editableArcSeat.arcRadius)}
+                      onPointerDown={() => beginArcGesture("arcRadius")}
+                      onPointerUp={() => endArcGesture("arcRadius")}
+                      onPointerCancel={() => endArcGesture("arcRadius")}
+                      onFocus={() => beginArcGesture("arcRadius")}
+                      onBlur={() => endArcGesture("arcRadius")}
+                      onChange={(e) =>
+                        handleArcFieldChange("arcRadius", e.target.value)
+                      }
+                      className="w-full accent-[#587cb3]"
+                    />
+                    <Input
+                      type="number"
+                      min="24"
+                      step="1"
+                      value={Math.round(editableArcSeat.arcRadius)}
+                      onChange={(e) =>
+                        handleArcFieldChange("arcRadius", e.target.value)
+                      }
+                      className="w-20 shrink-0"
+                    />
+                  </div>
+                </Field>
+              </div>
+            )}
+
             {/* Single-seat identity fields */}
             {selectedSeat && !isMultipleSeats && (
               <div className="flex flex-col gap-3">
@@ -459,6 +618,69 @@ function PropertiesPanel() {
                         )
                       }
                       placeholder="1"
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* Seat Type Selector for single seat */}
+            {selectedSeat && !isMultipleSeats && (
+              <div className="flex flex-col gap-3">
+                <SeatTypeSelector
+                  selectedType={selectedSeat.seatType}
+                  onSelectType={(type) => handleSeatUpdate("seatType", type)}
+                />
+              </div>
+            )}
+
+            {/* Seat dimensions for resizing */}
+            {selectedSeat && !isMultipleSeats && (
+              <div className="flex flex-col gap-3">
+                <SectionHeader>Dimensions</SectionHeader>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Width">
+                    <Input
+                      type="number"
+                      min="10"
+                      step="1"
+                      value={seatWidth}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSeatWidth(val);
+                        const num = parseFloat(val);
+                        if (!isNaN(num) && num >= 10) {
+                          handleSeatUpdate("width", num);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const num = parseFloat(e.target.value);
+                        if (isNaN(num) || num < 10) {
+                          setSeatWidth(selectedSeat.width || 24);
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field label="Height">
+                    <Input
+                      type="number"
+                      min="10"
+                      step="1"
+                      value={seatHeight}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSeatHeight(val);
+                        const num = parseFloat(val);
+                        if (!isNaN(num) && num >= 10) {
+                          handleSeatUpdate("height", num);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const num = parseFloat(e.target.value);
+                        if (isNaN(num) || num < 10) {
+                          setSeatHeight(selectedSeat.height || 24);
+                        }
+                      }}
                     />
                   </Field>
                 </div>
@@ -560,33 +782,6 @@ function PropertiesPanel() {
                 </div>
               </Field>
 
-              {/* Price */}
-              <Field label="Price">
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-white/30">
-                    $
-                  </span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={
-                      isMultipleSeats
-                        ? (commonPrice ?? "")
-                        : (selectedSeat?.price ?? "")
-                    }
-                    onChange={(e) =>
-                      handleSeatUpdate(
-                        "price",
-                        e.target.value ? parseFloat(e.target.value) : null,
-                      )
-                    }
-                    placeholder={
-                      isMultipleSeats && commonPrice === null ? "Mixed" : "0.00"
-                    }
-                    className="pl-6"
-                  />
-                </div>
-              </Field>
             </div>
 
             {/* Categories Manager */}
@@ -854,10 +1049,9 @@ function PropertiesPanel() {
                       })
                     }
                     className={`w-9 h-7 font-bold text-sm transition-all
-                      ${
-                        selectedText.fontWeight === "bold"
-                          ? "bg-[#587cb3] text-white"
-                          : "bg-[#0c1017] text-white/35 hover:text-white/60"
+                      ${selectedText.fontWeight === "bold"
+                        ? "bg-[#587cb3] text-white"
+                        : "bg-[#0c1017] text-white/35 hover:text-white/60"
                       }`}
                   >
                     B
@@ -873,10 +1067,9 @@ function PropertiesPanel() {
                       })
                     }
                     className={`w-9 h-7 italic text-sm transition-all
-                      ${
-                        selectedText.fontStyle === "italic"
-                          ? "bg-[#587cb3] text-white"
-                          : "bg-[#0c1017] text-white/35 hover:text-white/60"
+                      ${selectedText.fontStyle === "italic"
+                        ? "bg-[#587cb3] text-white"
+                        : "bg-[#0c1017] text-white/35 hover:text-white/60"
                       }`}
                   >
                     I

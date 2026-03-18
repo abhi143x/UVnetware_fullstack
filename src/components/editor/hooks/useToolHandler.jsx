@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { ToolManager } from "../tools/ToolManager";
-import { TOOL_ERASER } from "../constants/tools";
-import { TOOL_SELECT } from "../constants/tools";
+import { TOOL_ERASER, TOOL_SELECT, TOOL_TEXT } from "../constants/tools";
 
 export function useToolHandler(storeActions) {
   const toolManagerRef = useRef(null);
@@ -25,7 +24,8 @@ export function useToolHandler(storeActions) {
       if (
         !toolSession &&
         context.activeTool !== TOOL_ERASER &&
-        context.activeTool !== TOOL_SELECT
+        context.activeTool !== TOOL_SELECT &&
+        context.activeTool !== TOOL_TEXT
       )
         return;
 
@@ -62,11 +62,44 @@ export function useToolHandler(storeActions) {
     [toolManager],
   );
 
+  const handleContextMenu = useCallback(
+    (event, worldPoint, context) => {
+      const { handled, session } = toolManager.handleContextMenu(
+        event,
+        worldPoint,
+        context,
+        toolSession,
+      );
+      if (handled) {
+        setToolSession(session ?? null);
+      }
+      return handled;
+    },
+    [toolManager, toolSession],
+  );
+
+  const handleKeyDown = useCallback(
+    (event, context) => {
+      const { handled, session } = toolManager.handleKeyDown(
+        event,
+        context,
+        toolSession,
+      );
+      if (handled) {
+        setToolSession(session ?? null);
+      }
+      return handled;
+    },
+    [toolManager, toolSession],
+  );
+
   return {
     toolSession,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleClick,
+    handleContextMenu,
+    handleKeyDown,
   };
 }
