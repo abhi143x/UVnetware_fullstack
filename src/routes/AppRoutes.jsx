@@ -13,6 +13,8 @@ import ScrollToTop from "../components/utils/ScrollToTop.jsx";
 import Profile from "../components/pages/Profile";
 import MyLayouts from "../components/pages/MyLayouts.jsx";
 
+import AuthCallback from "../components/pages/auth/AuthCallback.jsx";
+
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -99,7 +101,16 @@ export default function AppRoutes() {
           }
         />
 
-        <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/profile"
+          element={
+            <MainLayout>
+              <Profile />
+            </MainLayout>
+          }
+        />
+
+        <Route path="/auth/callback" element={<AuthCallback />} />
       </Routes>
     </BrowserRouter>
   );

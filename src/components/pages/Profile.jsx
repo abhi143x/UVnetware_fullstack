@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
+
 export default function Profile() {
   const navigate = useNavigate();
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const storedUser = JSON.parse(localStorage.getItem("uvnet_auth_user")) || {};
 
@@ -113,18 +117,33 @@ export default function Profile() {
         </div>
 
         {/* Password */}
-        <div className="mb-6">
-          <label className="block mb-2 text-sm text-blue-300">
-            New Password
-          </label>
+<div className="mb-6">
+  <label className="block mb-2 text-sm text-blue-300">
+    New Password
+  </label>
 
-          <input
-            type="password"
-            placeholder="Enter new password"
-            className="w-full p-3 rounded bg-black text-white"
-            style={{ border: "1.5px solid #000055" }}
-          />
-        </div>
+  <div className="relative">
+    {/* Lock Icon */}
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+      <FaLock />
+    </span>
+
+    <input
+      type={showPassword ? "text" : "password"}
+      placeholder="Enter new password"
+      className="w-full p-3 pl-10 pr-12 rounded bg-black text-white"
+      style={{ border: "1.5px solid #000055" }}
+    />
+
+    {/* Eye Icon */}
+    <span
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-white"
+    >
+      {showPassword ? <FaEyeSlash /> : <FaEye />}
+    </span>
+  </div>
+</div>
 
         {/* Save Button */}
         <button
