@@ -172,11 +172,21 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full bg-linear-to-r from-black via-black/95 to-black/90 backdrop-blur-xl border-b border-blue-500/20 shadow-2xl">
       <div className="w-full px-8 sm:px-12 py-2.5 sm:py-3 flex items-center gap-8">
-        {/* SECTION 1: Company Name */}
+        {/* SECTION 1: Company Logo & Name */}
         <div className="shrink-0">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="text-3xl font-black bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent tracking-tighter hover:scale-105 transition-transform duration-300">
-              UV<span className="text-white">  Netware</span>
+          <Link
+            to="/"
+            className="flex items-center gap-3 group hover:scale-105 transition-transform duration-300"
+          >
+            {/* The SVG Logo */}
+            <img
+              src="/logo.svg"
+              alt="UV Logo"
+              className="h-8 sm:h-9 w-auto drop-shadow-md"
+            />
+            {/* The Netware Text */}
+            <div className="text-2xl sm:text-3xl font-black text-white tracking-tighter">
+              Netware
             </div>
           </Link>
         </div>
@@ -191,10 +201,11 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`px-5 py-2 text-white text-base font-bold rounded-lg transition-all duration-300 shadow-lg flex items-center gap-2 group ${isActive
+                  className={`px-5 py-2 text-white text-base font-bold rounded-lg transition-all duration-300 shadow-lg flex items-center gap-2 group ${
+                    isActive
                       ? "bg-blue-600 shadow-blue-500/60"
                       : "bg-linear-to-r hover:from-blue-500 hover:to-blue-400 hover:shadow-blue-500/50 hover:translate-x-1"
-                    }`}
+                  }`}
                 >
                   {item.name}
                 </Link>
@@ -205,15 +216,17 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 group relative whitespace-nowrap ${isActive
+                className={`flex items-center gap-2 px-3 py-1.5 text-white text-base font-medium rounded-lg transition-all duration-300 group relative whitespace-nowrap ${
+                  isActive
                     ? "bg-blue-500/20 text-blue-300"
                     : "hover:bg-blue-500/10 hover:text-blue-400"
-                  }`}
+                }`}
               >
                 <span>{item.name}</span>
                 <span
-                  className={`absolute bottom-0 left-0 h-0.5 bg-linear-to-r from-blue-500 to-blue-400 transition-all duration-300 rounded-full ${isActive ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
+                  className={`absolute bottom-0 left-0 h-0.5 bg-linear-to-r from-blue-500 to-blue-400 transition-all duration-300 rounded-full ${
+                    isActive ? "w-full" : "w-0 group-hover:w-full"
+                  }`}
                 ></span>
               </Link>
             );
@@ -384,10 +397,11 @@ export default function Navbar() {
                     key={item.name}
                     to={item.href}
                     onClick={() => setMobileOpen(false)}
-                    className={`flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all duration-300 font-bold shadow-lg text-lg ${isActive
+                    className={`flex items-center justify-center gap-2 px-4 py-3 text-white rounded-lg transition-all duration-300 font-bold shadow-lg text-lg ${
+                      isActive
                         ? "bg-blue-600"
                         : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
-                      }`}
+                    }`}
                   >
                     {item.name}
                   </Link>
@@ -399,8 +413,9 @@ export default function Navbar() {
                   key={item.name}
                   to={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 text-white rounded-lg transition-colors duration-300 text-lg ${isActive ? "bg-blue-500/25" : "hover:bg-blue-500/20"
-                    }`}
+                  className={`flex items-center gap-3 px-4 py-3 text-white rounded-lg transition-colors duration-300 text-lg ${
+                    isActive ? "bg-blue-500/25" : "hover:bg-blue-500/20"
+                  }`}
                 >
                   <span className="font-medium">{item.name}</span>
                 </Link>

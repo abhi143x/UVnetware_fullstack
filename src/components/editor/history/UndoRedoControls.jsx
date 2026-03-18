@@ -1,6 +1,6 @@
 import { useEditorStore } from "../store/editorStore";
 
-function UndoRedoControls({ compact = false }) {
+function UndoRedoControls({ compact = false, onHover, onLeave }) {
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const canUndo = useEditorStore((s) => s._history.past.length > 0);
@@ -13,6 +13,8 @@ function UndoRedoControls({ compact = false }) {
       <button
         type="button"
         onClick={undo}
+        onMouseEnter={() => onHover?.("undo")}
+        onMouseLeave={() => onLeave?.()}
         disabled={!canUndo}
         className={`rounded-lg border border-white/10 bg-[#0e1319] text-xs font-medium text-[#c9d6ea] transition-all hover:border-white/20 hover:bg-[#161c26] disabled:cursor-not-allowed disabled:opacity-40 ${compact ? "w-full py-2" : "flex-1 py-2"}`}
         title="Undo (Ctrl+Z)"
@@ -22,6 +24,8 @@ function UndoRedoControls({ compact = false }) {
       <button
         type="button"
         onClick={redo}
+        onMouseEnter={() => onHover?.("redo")}
+        onMouseLeave={() => onLeave?.()}
         disabled={!canRedo}
         className={`rounded-lg border border-white/10 bg-[#0e1319] text-xs font-medium text-[#c9d6ea] transition-all hover:border-white/20 hover:bg-[#161c26] disabled:cursor-not-allowed disabled:opacity-40 ${compact ? "w-full py-2" : "flex-1 py-2"}`}
         title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
